@@ -57,9 +57,8 @@ const department = {
         },
 
         async fetchDepColumns({ commit }, projectId) {
-            // const resOwnerId = await api.getFieldsName(projectId);
-            //resOwnerId.owner_id
-            const res = await api.getDepartmentsColumns();
+            const resOwnerId = await api.getFieldsName(projectId);
+            const res = await api.getDepartmentsColumns(resOwnerId.owner_id);
             const indexSettings = res.value.active_idx;
             if (indexSettings === -1) {
                 commit("setDepColumns", res.value.default_columns.columns);

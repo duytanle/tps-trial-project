@@ -18,14 +18,16 @@ const api = {
     },
 
     async getDepartmentsColumns(ownerId) {
-        const res = await axios.get(`/api/org-members`);
-        ///${ownerId}/preferences/departmentsColumns/
+        const res = await axios.get(
+            `/api/org-members/${ownerId}/preferences/departmentsColumns/`
+        );
         return res.data;
     },
 
     async getDepartments(pageSize, page, sort, projectId, state) {
-        const res = await axios.get(`/api/departments`);
-        ///?page_size=${pageSize}&page=${page}&sort=${sort}&project=${projectId}&state=${state}
+        const res = await axios.get(
+            `/api/departments/?page_size=${pageSize}&page=${page}&sort=${sort}&project=${projectId}&state=${state}`
+        );
         return res.data;
     },
 };
