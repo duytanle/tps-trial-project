@@ -7,6 +7,8 @@ const department = {
         depColumns: [],
         depColumnsSize: [],
         departments: [],
+        metaDepartment: {},
+        pagination: {},
     },
     getters: {
         getDepChosen: (state) => {
@@ -27,6 +29,12 @@ const department = {
 
         getDepartments: (state) => {
             return state.departments;
+        },
+        getMetaDepartment: (state) => {
+            return state.metaDepartment;
+        },
+        getPagination: (state) => {
+            return state.pagination;
         },
     },
     mutations: {
@@ -49,6 +57,14 @@ const department = {
         setDepartments: (state, payload) => {
             state.departments = payload;
         },
+
+        setMetaDepartment: (state, payload) => {
+            state.metaDepartment = payload;
+        },
+
+        setPagination: (state, payload) => {
+            state.pagination = { ...state.pagination, ...payload };
+        },
     },
     actions: {
         async fetchDepTypes({ commit }) {
@@ -60,6 +76,7 @@ const department = {
             const resOwnerId = await api.getFieldsName(projectId);
             const res = await api.getDepartmentsColumns(resOwnerId.owner_id);
             const indexSettings = res.value.active_idx;
+
             if (indexSettings === -1) {
                 commit("setDepColumns", res.value.default_columns.columns);
                 commit(
@@ -69,7 +86,7 @@ const department = {
             } else {
                 commit(
                     "setDepColumns",
-                    res.value.tableSettings[indexSettings].columns
+                    res.value.table_settings[indexSettings].columns
                 );
             }
         },
@@ -85,7 +102,7 @@ const department = {
                 projectId,
                 state
             );
-
+            commit("setMetaDepartment", res.meta);
             commit("setDepartments", res.results);
         },
     },

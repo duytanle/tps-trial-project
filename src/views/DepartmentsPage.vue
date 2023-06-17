@@ -10,6 +10,17 @@ export default {
             selected: [],
             headers: [],
             desserts: [],
+            options: {
+                page: 1,
+                itemsPerPage: 10,
+                sortBy: [],
+                sortDesc: [],
+                groupBy: [],
+                groupDesc: [],
+                multiSort: false,
+                mustSort: false,
+            },
+            selectedPage: 1,
         };
     },
     computed: {
@@ -17,16 +28,60 @@ export default {
             depTypes: "getDepTypes",
             depColumns: "getDepColumns",
             departments: "getDepartments",
+            metaDepartment: "getMetaDepartment",
         }),
+    },
+    watch: {
+        selectedPage(newPage) {
+            this.options.page = newPage;
+        },
     },
     methods: {
         ...mapActions(["fetchDepColumns", "fetchDepartments"]),
+        async handlePagination(pagination) {
+            console.log(pagination);
+            await this.fetchDepartments({
+                pageSize: pagination.itemsPerPage,
+                page: pagination.page,
+                sort: "name",
+                projectId: this.id,
+                state: "ACTIVE",
+            });
+            this.setDesserts();
+        },
+        footerPagination() {
+            let { page_size, page, total_results } = this.metaDepartment;
+            if (total_results === 0) return "-";
+            else {
+                let numStart = +page * page_size - (page_size - 1);
+                let numEnd =
+                    page_size > total_results
+                        ? total_results
+                        : numStart + page_size;
+                return numStart + "-" + numEnd + " of " + total_results;
+            }
+        },
+        setDesserts() {
+            this.desserts = this.departments.map((department) => {
+                let tempDesserts = {};
+
+                for (const depColumn of this.depColumns) {
+                    if (depColumn === "department_type") {
+                        tempDesserts[depColumn] =
+                            department.department_type.option_name;
+                    } else {
+                        tempDesserts[depColumn] = department[depColumn];
+                    }
+                }
+                return tempDesserts;
+            });
+        },
     },
 
     async created() {
         await this.fetchDepColumns(this.id);
         await this.fetchDepartments({
-            pageSize: 50,
+            pageSize: 10,
             page: 1,
             sort: "name",
             projectId: this.id,
@@ -40,20 +95,7 @@ export default {
             value: item,
             divider: true,
         }));
-
-        this.desserts = this.departments.map((department) => {
-            let tempDesserts = {};
-
-            for (const depColumn of this.depColumns) {
-                if (depColumn === "department_type") {
-                    tempDesserts[depColumn] =
-                        department.department_type.option_name;
-                } else {
-                    tempDesserts[depColumn] = department[depColumn];
-                }
-            }
-            return tempDesserts;
-        });
+        this.setDesserts();
     },
 
     mounted() {},
@@ -111,11 +153,15 @@ export default {
                                     >mdi-alpha-i</v-icon
                                 >
                             </template>
-                            <span>Tooltip</span>
+                            <span
+                                >These value do not include Redact or inactive
+                                object
+                            </span>
                         </v-tooltip>
                     </div>
                 </div>
             </div>
+
             <v-data-table
                 v-model="selected"
                 :headers="headers"
@@ -124,7 +170,38 @@ export default {
                 item-key="name"
                 show-select
                 class="elevation-1 custom-table"
+                :options.sync="options"
+                @pagination="handlePagination"
+                fixed-header
+                :footer-props="{
+                    pagination: {
+                        pageCount: this.metaDepartment.total_pages,
+                        itemsLength: this.metaDepartment.total_results,
+                    },
+                }"
             >
+                <template slot="footer.prepend">
+                    <v-btn color="primary" class="ml-auto">Button mới</v-btn>
+                </template>
+                <template slot="footer.page-text">
+                    <div
+                        class="d-flex align-center"
+                        :style="{ width: '300px' }"
+                    >
+                        <div class="v-data-footer__select">
+                            Go to page:
+                            <v-select
+                                :items="[1, 2]"
+                                class="my-0"
+                                hide-details
+                                v-model="selectedPage"
+                            ></v-select>
+                        </div>
+                        <div class="v-data-footer__pagination">
+                            {{ footerPagination() }}
+                        </div>
+                    </div>
+                </template>
             </v-data-table>
         </div>
     </div>
@@ -160,5 +237,12 @@ tbody tr:nth-of-type(odd) {
 }
 tbody tr:hover {
     background-color: #e0e0e0 !important;
+}
+.v-data-footer__select {
+    margin-left: 14px !important;
+}
+
+.v-data-table__wrapper {
+    max-height: 60vh;
 }
 </style>
