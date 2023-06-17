@@ -22,5 +22,3 @@ const handleLogin = async () => {
 <template>
     <v-btn text @click="handleLogin"> Login</v-btn>
 </template>
-
-<style scoped></style>
