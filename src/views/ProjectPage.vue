@@ -37,9 +37,8 @@ export default {
             this.setProjects(res.data.results);
         },
     },
-    created() {
-        this.allListProject();
-        this.fetchDepTypes();
+    async created() {
+        await this.allListProject();
     },
 };
 </script>

@@ -10,17 +10,9 @@ export default {
             selected: [],
             headers: [],
             desserts: [],
-            options: {
-                page: 1,
-                itemsPerPage: 10,
-                sortBy: [],
-                sortDesc: [],
-                groupBy: [],
-                groupDesc: [],
-                multiSort: false,
-                mustSort: false,
-            },
+            offsetTop: 0,
             selectedPage: 1,
+            toTopBtn: false,
         };
     },
     computed: {
@@ -30,16 +22,18 @@ export default {
             departments: "getDepartments",
             metaDepartment: "getMetaDepartment",
         }),
-    },
-    watch: {
-        selectedPage(newPage) {
-            this.options.page = newPage;
+        footerProps() {
+            return {
+                "items-per-page-options": [12, 5, 10, 15, -1],
+                "show-first-last-page": true,
+                pagination: { pageCount: this.metaDepartment.total_pages },
+            };
         },
     },
     methods: {
         ...mapActions(["fetchDepColumns", "fetchDepartments"]),
+
         async handlePagination(pagination) {
-            console.log(pagination);
             await this.fetchDepartments({
                 pageSize: pagination.itemsPerPage,
                 page: pagination.page,
@@ -47,8 +41,10 @@ export default {
                 projectId: this.id,
                 state: "ACTIVE",
             });
+            this.selectedPage = pagination.page;
             this.setDesserts();
         },
+
         footerPagination() {
             let { page_size, page, total_results } = this.metaDepartment;
             if (total_results === 0) return "-";
@@ -57,10 +53,11 @@ export default {
                 let numEnd =
                     page_size > total_results
                         ? total_results
-                        : numStart + page_size;
+                        : numStart + page_size - 1;
                 return numStart + "-" + numEnd + " of " + total_results;
             }
         },
+
         setDesserts() {
             this.desserts = this.departments.map((department) => {
                 let tempDesserts = {};
@@ -75,6 +72,43 @@ export default {
                 }
                 return tempDesserts;
             });
+        },
+        handleWrapperScroll(e) {
+            e.target.scrollTop > 0
+                ? (this.toTopBtn = true)
+                : (this.toTopBtn = false);
+        },
+        handleToTop() {
+            const tableWrapper = document.querySelector(
+                ".v-data-table__wrapper"
+            );
+            tableWrapper.scrollTop = 0;
+        },
+
+        customSort(items, index, sortBy, isDesc) {
+            console.log(items, sortBy, isDesc);
+            items.sort((a, b) => {
+                if (index[0] == "date") {
+                    if (!isDesc[0]) {
+                        return new Date(b[index]) - new Date(a[index]);
+                    } else {
+                        return new Date(a[index]) - new Date(b[index]);
+                    }
+                } else {
+                    if (typeof a[index] !== "undefined") {
+                        if (!isDesc[0]) {
+                            return a[index]
+                                .toLowerCase()
+                                .localeCompare(b[index].toLowerCase());
+                        } else {
+                            return b[index]
+                                .toLowerCase()
+                                .localeCompare(a[index].toLowerCase());
+                        }
+                    }
+                }
+            });
+            return items;
         },
     },
 
@@ -98,7 +132,10 @@ export default {
         this.setDesserts();
     },
 
-    mounted() {},
+    mounted() {
+        const tableWrapper = document.querySelector(".v-data-table__wrapper");
+        tableWrapper.addEventListener("scroll", this.handleWrapperScroll);
+    },
 };
 </script>
 
@@ -161,48 +198,71 @@ export default {
                     </div>
                 </div>
             </div>
-
-            <v-data-table
-                v-model="selected"
-                :headers="headers"
-                :items="desserts"
-                :single-select="singleSelect"
-                item-key="name"
-                show-select
-                class="elevation-1 custom-table"
-                :options.sync="options"
-                @pagination="handlePagination"
-                fixed-header
-                :footer-props="{
-                    pagination: {
-                        pageCount: this.metaDepartment.total_pages,
-                        itemsLength: this.metaDepartment.total_results,
-                    },
-                }"
-            >
-                <template slot="footer.prepend">
-                    <v-btn color="primary" class="ml-auto">Button mới</v-btn>
-                </template>
-                <template slot="footer.page-text">
-                    <div
-                        class="d-flex align-center"
-                        :style="{ width: '300px' }"
-                    >
-                        <div class="v-data-footer__select">
-                            Go to page:
-                            <v-select
-                                :items="[1, 2]"
-                                class="my-0"
-                                hide-details
-                                v-model="selectedPage"
-                            ></v-select>
+            <div>
+                <v-data-table
+                    item-key="name"
+                    show-select
+                    fixed-header
+                    class="elevation-1 custom-table"
+                    v-model="selected"
+                    :headers="headers"
+                    :items="desserts"
+                    :single-select="singleSelect"
+                    :page="selectedPage"
+                    :server-items-length="metaDepartment.total_results"
+                    @pagination="handlePagination"
+                >
+                    <template v-slot:[`item.state`]="{ item }">
+                        <v-chip color="green" dark small>
+                            {{
+                                item.state
+                                    .toLowerCase()
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                item.state.toLowerCase().slice(1)
+                            }}
+                        </v-chip>
+                    </template>
+                    <template slot="footer.prepend">
+                        <div class="ml-auto"></div>
+                        <v-btn
+                            text
+                            color="primary"
+                            v-if="toTopBtn"
+                            @click="handleToTop"
+                        >
+                            <v-icon>mdi-chevron-up</v-icon> TO TOP OF TABLE
+                        </v-btn>
+                    </template>
+                    <template slot="footer.page-text">
+                        <div
+                            class="d-flex align-center"
+                            :style="{ width: '300px' }"
+                        >
+                            <div class="v-data-footer__select">
+                                Go to page:
+                                <v-select
+                                    :items="
+                                        Array.from(
+                                            {
+                                                length: this.metaDepartment
+                                                    .total_pages,
+                                            },
+                                            (_, i) => i + 1
+                                        )
+                                    "
+                                    class="my-0"
+                                    hide-details
+                                    v-model="selectedPage"
+                                ></v-select>
+                            </div>
+                            <div class="v-data-footer__pagination">
+                                {{ footerPagination() }}
+                            </div>
                         </div>
-                        <div class="v-data-footer__pagination">
-                            {{ footerPagination() }}
-                        </div>
-                    </div>
-                </template>
-            </v-data-table>
+                    </template>
+                </v-data-table>
+            </div>
         </div>
     </div>
 </template>

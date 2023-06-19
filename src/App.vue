@@ -1,4 +1,4 @@
-<script setup>
+<script>
 // import DepartmentsPage from "./views/DepartmentsPage.vue";
 </script>
 
