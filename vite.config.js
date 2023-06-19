@@ -20,16 +20,16 @@ export default defineConfig({
     },
     server: {
         proxy: {
-            // "^/api": {
-            //     target: "http://192.168.90.49:8080/api",
-            //     changeOrigin: true,
-            //     rewrite: (path) => path.replace(/^\/api/, ""),
-            // },
             "^/api": {
-                target: "http://localhost:3000/api",
+                target: "http://192.168.90.49:8080/api",
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, ""),
             },
+            // "^/api": {
+            //     target: "http://localhost:3000/api",
+            //     changeOrigin: true,
+            //     rewrite: (path) => path.replace(/^\/api/, ""),
+            // },
         },
     },
 });
