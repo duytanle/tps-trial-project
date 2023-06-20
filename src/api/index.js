@@ -12,6 +12,12 @@ const api = {
         return res.data;
     },
 
+    async getDepTypes(pageSize, projectId) {
+        const res = await axios.get(
+            `/api/custom-columns/?page_size=${pageSize}&sort=&project_id=${projectId}&section=DEPARTMENT&status=ACTIVE&status=MANDATORY`
+        );
+        return res.data;
+    },
     async getFieldsName(projectId) {
         const res = await axios.get(`/api/projects/${projectId}/?fields=name`);
         return res.data;
