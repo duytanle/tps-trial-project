@@ -9,7 +9,9 @@ const props = defineProps({
     textTooltip: String,
     type: String,
 });
-let text = ref("");
+let rules = ref({
+    name: [(val) => (val || "").length > 0 || "This field is required"],
+});
 </script>
 
 <template>
@@ -21,18 +23,23 @@ let text = ref("");
         :textTooltip="textTooltip"
     >
         <template #dialogContent
-            ><div
+            ><v-form
                 class="dialog__content justify-content-flex-end pt-4 pb-2 px-0"
+                ref="addEditForm"
             >
                 <div class="pb-3">
                     <v-text-field
                         label="Name*"
                         class="pa-0 mt-4"
                         v-model="text"
+                        :rules="rules.name"
+                        required
                     ></v-text-field>
                     <v-combobox
                         :items="items"
+                        :rules="rules.name"
                         label="Department Type*"
+                        required
                         color="primary"
                     ></v-combobox>
                     <v-text-field
@@ -49,7 +56,7 @@ let text = ref("");
                 <div class="form-note" :style="{ fontSize: '1.2rem' }">
                     *indicates required field
                 </div>
-            </div>
+            </v-form>
         </template>
         <template #dialogAction>
             <div class="pr-2 pl-0 py-0 col col-6">

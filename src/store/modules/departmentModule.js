@@ -3,7 +3,7 @@ import api from "../../api";
 const department = {
     state: {
         depChosen: [],
-        depTypes: {},
+        depTypes: [],
         depColumns: [],
         depColumnsSize: [],
         departments: [],
@@ -67,9 +67,15 @@ const department = {
         },
     },
     actions: {
-        async fetchDepTypes({ commit }) {
-            const res = await api.getMap();
-            commit("setDepTypes", res.choices["department_type"]);
+        async fetchDepTypes({ commit }, { pageSize, projectId }) {
+            const res = await api.getDepTypes(pageSize, projectId);
+            const columnChoices = res.results[0].column_choices;
+            const depTypes = columnChoices.map((item) => ({
+                name: item.option_name,
+                id: item.id,
+            }));
+
+            commit("setDepTypes", depTypes);
         },
 
         async fetchDepColumns({ commit }, projectId) {

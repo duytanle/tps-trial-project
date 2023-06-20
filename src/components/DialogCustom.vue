@@ -28,14 +28,17 @@ const props = defineProps({
         </template>
         <template v-slot:default="dialog">
             <div class="px-4 d-flex flex-column" :style="{ height: '100vh' }">
-                <div
-                    class="dialog__header px-0 py-2 d-flex justify-space-between align-center"
-                    :style="{ fontSize: '2rem' }"
-                >
-                    <p class="mb-0 font-weight-bold">{{ dialogName }}</p>
-                    <v-btn icon @click="dialog.value = false"
-                        ><v-icon>mdi-close</v-icon></v-btn
+                <div class="dialog__header">
+                    <div
+                        class="dialog__title px-0 py-2 d-flex justify-space-between align-center"
+                        :style="{ fontSize: '2rem' }"
                     >
+                        <p class="mb-0 font-weight-bold">{{ dialogName }}</p>
+                        <v-btn icon @click="dialog.value = false"
+                            ><v-icon>mdi-close</v-icon></v-btn
+                        >
+                    </div>
+                    <slot name="dialogHeader"></slot>
                 </div>
                 <v-divider></v-divider>
 

@@ -3,12 +3,32 @@ import DialogCreateEdit from "./DialogCreateEdit.vue";
 import DialogCustom from "../DialogCustom.vue";
 import BottomSheetCustom from "../BottomSheetCustom.vue";
 import MenuCustom from "../MenuCustom.vue";
+import SearchComponent from "../SearchComponent.vue";
+import { mapGetters } from "vuex";
 export default {
     components: {
         DialogCreateEdit,
         DialogCustom,
         BottomSheetCustom,
         MenuCustom,
+        SearchComponent,
+    },
+    data() {
+        return {
+            depChosen: null,
+        };
+    },
+    computed: {
+        ...mapGetters({ depTypes: "getDepTypes" }),
+        depTypesName() {
+            return this.depTypes.map((item) => item.text);
+        },
+    },
+
+    watch: {
+        depChosen(newValue) {
+            console.log(newValue);
+        },
     },
 };
 </script>
@@ -27,19 +47,9 @@ export default {
                 <template> </template>
             </bottom-sheet-custom>
         </div>
-        <div class="dep__search flex-grow-1">
-            <v-text-field
-                prepend-inner-icon="mdi-magnify"
-                hide-details
-                light
-                solo
-                flat
-                dense
-                background-color="#F0F0F0"
-                label="Search Results..."
-                clearable
-            ></v-text-field>
-        </div>
+        <search-component
+            customClass="dep__search flex-grow-1"
+        ></search-component>
         <div class="dep__actions d-flex ml-auto">
             <div class="dep__add">
                 <menu-custom icon="mdi-plus" textTooltip="Add/Create">
@@ -81,7 +91,48 @@ export default {
                     icon="mdi-filter-variant"
                     textTooltip="Filter"
                     dialogName="Filter"
-                ></dialog-custom>
+                >
+                    <template v-slot:dialogHeader>
+                        <search-component
+                            customClass="flex-grow-1 mb-1"
+                        ></search-component>
+                    </template>
+                    <template v-slot:dialogContent>
+                        <div class="dialog__content mx-n4">
+                            <v-expansion-panels accordion>
+                                <v-expansion-panel>
+                                    <v-expansion-panel-header>
+                                        <div
+                                            class="title d-flex align-center text-h5"
+                                        >
+                                            <v-icon
+                                                text
+                                                color="green"
+                                                v-if="depChosen"
+                                                >mdi-check</v-icon
+                                            >Department Type
+                                        </div></v-expansion-panel-header
+                                    >
+
+                                    <v-expansion-panel-content>
+                                        <v-combobox
+                                            v-model="depChosen"
+                                            :items="depTypes"
+                                            item-text="name"
+                                            item-value="id"
+                                            label="Department Type"
+                                            color="primary"
+                                            class="px-3"
+                                            clearable
+                                            chips
+                                            return-object
+                                        ></v-combobox>
+                                    </v-expansion-panel-content>
+                                </v-expansion-panel>
+                            </v-expansion-panels>
+                        </div>
+                    </template>
+                </dialog-custom>
             </div>
 
             <div class="dep__settings">

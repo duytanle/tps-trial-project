@@ -12,7 +12,12 @@ export default {
             desserts: [],
             offsetTop: 0,
             selectedPage: 1,
+            itemsPerPage: 10,
             toTopBtn: false,
+            pagination: {
+                page: 1,
+                itemsPerPage: 10,
+            },
         };
     },
     computed: {
@@ -22,27 +27,41 @@ export default {
             departments: "getDepartments",
             metaDepartment: "getMetaDepartment",
         }),
-        footerProps() {
-            return {
-                "items-per-page-options": [12, 5, 10, 15, -1],
-                "show-first-last-page": true,
-                pagination: { pageCount: this.metaDepartment.total_pages },
-            };
+    },
+    watch: {
+        pagination: {
+            handler: async function (newValue) {
+                this.$router.push({
+                    query: {
+                        pageSize: newValue.itemsPerPage,
+                        page: newValue.page,
+                    },
+                });
+                await this.fetchDepartments({
+                    pageSize: newValue.itemsPerPage,
+                    page: newValue.page,
+                    sort: "name",
+                    projectId: this.id,
+                    state: "ACTIVE",
+                });
+                this.setDesserts();
+            },
+            deep: true,
         },
     },
     methods: {
-        ...mapActions(["fetchDepColumns", "fetchDepartments"]),
+        ...mapActions(["fetchDepColumns", "fetchDepartments", "fetchDepTypes"]),
 
-        async handlePagination(pagination) {
-            await this.fetchDepartments({
-                pageSize: pagination.itemsPerPage,
-                page: pagination.page,
-                sort: "name",
-                projectId: this.id,
-                state: "ACTIVE",
-            });
-            this.selectedPage = pagination.page;
-            this.setDesserts();
+        handlePagination(pagination) {
+            console.log(pagination);
+            if (
+                this.pagination.itemsPerPage !== pagination.itemsPerPage ||
+                this.pagination.page !== pagination.page
+            ) {
+                // this.selectedPage = pagination.page;
+                this.pagination.page = pagination.page;
+                this.pagination.itemsPerPage = pagination.itemsPerPage;
+            }
         },
 
         footerPagination() {
@@ -113,10 +132,16 @@ export default {
     },
 
     async created() {
+        let query = this.$route.query;
+        if (query) {
+            this.pagination.page = +query.page || 1;
+            this.pagination.itemsPerPage = +query.pageSize || 10;
+        }
+        await this.fetchDepTypes({ pageSize: 5000, projectId: this.id });
         await this.fetchDepColumns(this.id);
         await this.fetchDepartments({
-            pageSize: 10,
-            page: 1,
+            pageSize: this.$route.query.pageSize || 10,
+            page: this.$route.query.page || 1,
             sort: "name",
             projectId: this.id,
             state: "ACTIVE",
@@ -208,9 +233,10 @@ export default {
                     :headers="headers"
                     :items="desserts"
                     :single-select="singleSelect"
-                    :page="selectedPage"
+                    :page.sync="selectedPage"
                     :server-items-length="metaDepartment.total_results"
                     @pagination="handlePagination"
+                    :items-per-page="itemsPerPage"
                 >
                     <template v-slot:[`item.state`]="{ item }">
                         <v-chip color="green" dark small>
