@@ -36,6 +36,10 @@ const api = {
         );
         return res.data;
     },
+    async getDetailDepartment(depId) {
+        const res = await axios.get(`/api/departments/${depId}/`);
+        return res.data;
+    },
 };
 
 export default api;

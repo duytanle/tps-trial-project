@@ -1,25 +1,33 @@
 <script>
-import DialogCreateEdit from "./DialogCreateEdit.vue";
-import DialogCustom from "../DialogCustom.vue";
 import BottomSheetCustom from "../BottomSheetCustom.vue";
-import MenuCustom from "../MenuCustom.vue";
 import SearchComponent from "../SearchComponent.vue";
-import { mapGetters } from "vuex";
+import { mapActions, mapGetters } from "vuex";
+import ButtonCustom from "../ButtonCustom.vue";
+import DialogCreateEdit from "../DialogCreateEdit.vue";
+import DialogCustom from "../DialogCustom.vue";
+import MenuCustom from "../MenuCustom.vue";
 export default {
     components: {
+        BottomSheetCustom,
+        SearchComponent,
+        ButtonCustom,
         DialogCreateEdit,
         DialogCustom,
-        BottomSheetCustom,
         MenuCustom,
-        SearchComponent,
     },
     data() {
         return {
             depChosen: null,
+            loading: false,
         };
     },
     computed: {
-        ...mapGetters({ depTypes: "getDepTypes" }),
+        ...mapGetters({
+            depTypes: "getDepTypes",
+            listEditNumber: "getListEditNumber",
+            detailDep: "getDetailDepartment",
+            infoEditDep: "getInfoEditDep",
+        }),
         depTypesName() {
             return this.depTypes.map((item) => item.text);
         },
@@ -28,6 +36,14 @@ export default {
     watch: {
         depChosen(newValue) {
             console.log(newValue);
+        },
+    },
+    methods: {
+        ...mapActions(["fetchDetailDepartment"]),
+        async handleEditDepartment() {
+            this.loading = true;
+            await this.fetchDetailDepartment(this.infoEditDep.id);
+            this.loading = false;
         },
     },
 };
@@ -47,9 +63,11 @@ export default {
                 <template> </template>
             </bottom-sheet-custom>
         </div>
+
         <search-component
             customClass="dep__search flex-grow-1"
         ></search-component>
+
         <div class="dep__actions d-flex ml-auto">
             <div class="dep__add">
                 <menu-custom icon="mdi-plus" textTooltip="Add/Create">
@@ -64,10 +82,13 @@ export default {
                         </p>
                         <v-list-item-group>
                             <v-list-item>
+                                <span class="add-empty-dialog">
+                                    Empty Department
+                                </span>
+
                                 <dialog-create-edit
-                                    :useButton="false"
+                                    cssLink="add-empty-dialog"
                                     dialogName="Create Department"
-                                    textReplaceButton="Empty Department"
                                     type="create"
                                 ></dialog-create-edit>
                             </v-list-item>
@@ -79,23 +100,31 @@ export default {
                 </menu-custom>
             </div>
             <div class="dep__edit">
-                <dialog-create-edit
+                <button-custom
                     icon="mdi-pencil"
                     textTooltip="Edit"
-                    dialogName="Edit Department"
+                    cssLink="edit-dialog"
                     type="edit"
+                    :disabled="listEditNumber !== 1"
+                    :handleClick="handleEditDepartment"
+                ></button-custom>
+                <dialog-create-edit
+                    cssLink="edit-dialog"
+                    dialogName="Edit Department"
                 ></dialog-create-edit>
             </div>
+
             <div class="dep__filter">
-                <dialog-custom
+                <button-custom
                     icon="mdi-filter-variant"
                     textTooltip="Filter"
-                    dialogName="Filter"
+                    cssLink="filter-dialog"
                 >
+                </button-custom>
+                <dialog-custom cssLink="filter-dialog" dialogName="Filter">
                     <template v-slot:dialogHeader>
-                        <search-component
-                            customClass="flex-grow-1 mb-1"
-                        ></search-component>
+                        <search-component customClass="flex-grow-1 mb-1">
+                        </search-component>
                     </template>
                     <template v-slot:dialogContent>
                         <div class="dialog__content mx-n4">
@@ -111,8 +140,8 @@ export default {
                                                 v-if="depChosen"
                                                 >mdi-check</v-icon
                                             >Department Type
-                                        </div></v-expansion-panel-header
-                                    >
+                                        </div>
+                                    </v-expansion-panel-header>
 
                                     <v-expansion-panel-content>
                                         <v-combobox
@@ -126,7 +155,8 @@ export default {
                                             clearable
                                             chips
                                             return-object
-                                        ></v-combobox>
+                                        >
+                                        </v-combobox>
                                     </v-expansion-panel-content>
                                 </v-expansion-panel>
                             </v-expansion-panels>
@@ -136,11 +166,13 @@ export default {
             </div>
 
             <div class="dep__settings">
-                <dialog-custom
+                <button-custom
+                    cssLink="settings-dialog"
                     icon="mdi-cog"
                     textTooltip="Settings"
-                    dialogName="Settings"
                 >
+                </button-custom>
+                <dialog-custom dialogName="Settings" cssLink="settings-dialog">
                 </dialog-custom>
             </div>
             <div class="dep__more">

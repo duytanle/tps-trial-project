@@ -1,5 +1,5 @@
 <script>
-import { mapActions, mapGetters } from "vuex";
+import { mapActions, mapGetters, mapMutations } from "vuex";
 import HeaderFilter from "../components/Header/HeaderFilter.vue";
 export default {
     components: { HeaderFilter },
@@ -18,6 +18,7 @@ export default {
                 page: 1,
                 itemsPerPage: 10,
             },
+            selectedDep: [],
         };
     },
     computed: {
@@ -26,6 +27,7 @@ export default {
             depColumns: "getDepColumns",
             departments: "getDepartments",
             metaDepartment: "getMetaDepartment",
+            listEditNumber: "getListEditNumber",
         }),
     },
     watch: {
@@ -48,12 +50,15 @@ export default {
             },
             deep: true,
         },
+        selectedDep: function () {
+            this.setListEditDep(this.selectedDep);
+        },
     },
+
     methods: {
         ...mapActions(["fetchDepColumns", "fetchDepartments", "fetchDepTypes"]),
-
+        ...mapMutations(["setListEditDep"]),
         handlePagination(pagination) {
-            console.log(pagination);
             if (
                 this.pagination.itemsPerPage !== pagination.itemsPerPage ||
                 this.pagination.page !== pagination.page
@@ -79,7 +84,7 @@ export default {
 
         setDesserts() {
             this.desserts = this.departments.map((department) => {
-                let tempDesserts = {};
+                let tempDesserts = { id: department.id };
 
                 for (const depColumn of this.depColumns) {
                     if (depColumn === "department_type") {
@@ -89,6 +94,7 @@ export default {
                         tempDesserts[depColumn] = department[depColumn];
                     }
                 }
+
                 return tempDesserts;
             });
         },
@@ -229,7 +235,7 @@ export default {
                     show-select
                     fixed-header
                     class="elevation-1 custom-table"
-                    v-model="selected"
+                    v-model="selectedDep"
                     :headers="headers"
                     :items="desserts"
                     :single-select="singleSelect"
