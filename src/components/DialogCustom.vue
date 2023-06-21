@@ -1,31 +1,29 @@
-<script setup>
-import ButtonCustom from "./ButtonCustom.vue";
-const props = defineProps({
-    icon: String,
-    textTooltip: String,
-    useButton: { type: Boolean, default: true },
-    dialogName: String,
-    textReplaceButton: String,
-});
+<script>
+import DialogConfirm from "./DialogConfirm.vue";
+export default {
+    components: {
+        DialogConfirm,
+    },
+    props: {
+        isConfirm: { type: Boolean, default: false },
+        dialogName: { type: String },
+        cssLink: { type: String },
+    },
+    data() {
+        return {
+            dialog: false,
+        };
+    },
+    methods: {},
+};
 </script>
-
 <template>
     <v-dialog
         transition="scroll-x-reverse-transition"
         persistent
+        :activator="'.' + cssLink"
         content-class="right-dialog"
     >
-        <template v-slot:activator="{ on, attrs }">
-            <button-custom
-                :icon="props.icon"
-                :textTooltip="props.textTooltip"
-                :activator="{ on, attrs }"
-                v-if="useButton"
-            ></button-custom>
-            <div text @click="on.click" v-if="!useButton">
-                {{ textReplaceButton }}
-            </div>
-        </template>
         <template v-slot:default="dialog">
             <div class="px-4 d-flex flex-column" :style="{ height: '100vh' }">
                 <div class="dialog__header">
@@ -33,8 +31,24 @@ const props = defineProps({
                         class="dialog__title px-0 py-2 d-flex justify-space-between align-center"
                         :style="{ fontSize: '2rem' }"
                     >
-                        <p class="mb-0 font-weight-bold">{{ dialogName }}</p>
-                        <v-btn icon @click="dialog.value = false"
+                        <p class="mb-0 font-weight-bold">
+                            {{ dialogName }}
+                        </p>
+
+                        <dialog-confirm
+                            v-if="isConfirm"
+                            @update:close="($event) => (dialog.value = $event)"
+                        >
+                            <template v-slot:openConfirmDialog="{ activator }">
+                                <v-btn
+                                    icon
+                                    v-bind="activator.attrs"
+                                    v-on="activator.on"
+                                    ><v-icon>mdi-close</v-icon></v-btn
+                                >
+                            </template>
+                        </dialog-confirm>
+                        <v-btn v-else icon @click="dialog.value = false"
                             ><v-icon>mdi-close</v-icon></v-btn
                         >
                     </div>
@@ -52,7 +66,6 @@ const props = defineProps({
         </template>
     </v-dialog>
 </template>
-
 <style>
 .right-dialog {
     max-width: 500px !important;

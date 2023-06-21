@@ -1,6 +1,4 @@
-<script>
-// import DepartmentsPage from "./views/DepartmentsPage.vue";
-</script>
+<script setup></script>
 
 <template>
     <v-app class="pa-0">
