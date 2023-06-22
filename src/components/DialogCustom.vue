@@ -60,7 +60,14 @@ export default {
                 <v-spacer></v-spacer>
                 <v-divider></v-divider>
                 <div class="dialog__action py-2 d-flex">
-                    <slot name="dialogAction"></slot>
+                    <slot
+                        name="dialogAction"
+                        :closeDialog="
+                            () => {
+                                dialog.value = false;
+                            }
+                        "
+                    ></slot>
                 </div>
             </div>
         </template>

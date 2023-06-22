@@ -1,6 +1,7 @@
 <script>
 import { mapActions, mapGetters, mapMutations } from "vuex";
 import HeaderFilter from "../components/Header/HeaderFilter.vue";
+import api from "../api/index";
 export default {
     components: { HeaderFilter },
     props: ["id"],
@@ -19,6 +20,9 @@ export default {
                 itemsPerPage: 10,
             },
             selectedDep: [],
+            refIdEdit: "",
+            departmentTypeEdit: null,
+            directlyEdit: false,
         };
     },
     computed: {
@@ -53,11 +57,14 @@ export default {
         selectedDep: function () {
             this.setListEditDep(this.selectedDep);
         },
+        departments: function () {
+            this.setDesserts();
+        },
     },
 
     methods: {
         ...mapActions(["fetchDepColumns", "fetchDepartments", "fetchDepTypes"]),
-        ...mapMutations(["setListEditDep"]),
+        ...mapMutations(["setListEditDep", "setProjectId"]),
         handlePagination(pagination) {
             if (
                 this.pagination.itemsPerPage !== pagination.itemsPerPage ||
@@ -84,7 +91,10 @@ export default {
 
         setDesserts() {
             this.desserts = this.departments.map((department) => {
-                let tempDesserts = { id: department.id };
+                let tempDesserts = {
+                    id: department.id,
+                    department_type_id: department.department_type.id,
+                };
 
                 for (const depColumn of this.depColumns) {
                     if (depColumn === "department_type") {
@@ -135,15 +145,138 @@ export default {
             });
             return items;
         },
-    },
+        async handleCloseEditTextField(valueEdit, itemEdit, headerItem) {
+            if (this.directlyEdit) {
+                itemEdit[headerItem.value] = valueEdit;
+                await api.updateDepartment(itemEdit.id, {
+                    [headerItem.text]: valueEdit,
+                });
+                this.directlyEdit = false;
+            }
+            console.log(itemEdit, headerItem);
+        },
 
+        handleChangeTextField(data) {
+            if (data.trim() != this.refIdEdit.trim()) {
+                this.refIdEdit = data.trim();
+                this.directlyEdit = true;
+            }
+        },
+
+        async handleCloseEditCombobox(itemEdit, headerItem) {
+            itemEdit[headerItem.value] = this.departmentTypeEdit.name;
+
+            if (this.directlyEdit) {
+                await api.updateDepartment(itemEdit.id, {
+                    [headerItem.text]: this.departmentTypeEdit.id,
+                });
+                this.directlyEdit = false;
+            }
+        },
+
+        handleChangeCombobox(newValue, itemEdit, headerItem) {
+            const valueBeforeEdit = itemEdit[headerItem.value];
+            itemEdit[headerItem.value] = newValue.name;
+            this.departmentTypeEdit = { id: newValue.id, name: newValue.name };
+            if (valueBeforeEdit !== newValue.name) {
+                this.directlyEdit = true;
+            }
+        },
+
+        resizableGrid(table) {
+            let row = table.querySelectorAll("tr")[0];
+            let cols = row ? row.children : undefined;
+            console.log(cols);
+            if (!cols) return;
+
+            table.style.overflow = "hidden";
+            let tableHeight = table.offsetHeight;
+
+            for (const element of cols) {
+                console.log(element);
+                let div = this.createDiv(tableHeight);
+                element.appendChild(div);
+                element.style.position = "relative";
+                this.setListeners(div);
+            }
+        },
+
+        setListeners(div) {
+            let pageX, curCol, nxtCol, curColWidth, nxtColWidth;
+            let temp = this.paddingDiff;
+            div.addEventListener("mousedown", function (e) {
+                curCol = e.target.parentElement;
+                nxtCol = curCol.nextElementSibling;
+                pageX = e.pageX;
+
+                let padding = temp(curCol);
+
+                curColWidth = curCol.offsetWidth - padding;
+                if (nxtCol) nxtColWidth = nxtCol.offsetWidth - padding;
+            });
+
+            div.addEventListener("mouseover", function (e) {
+                e.target.style.borderRight = "2px solid #0000ff";
+            });
+
+            div.addEventListener("mouseout", function (e) {
+                e.target.style.borderRight = "";
+            });
+
+            document.addEventListener("mousemove", function (e) {
+                if (curCol) {
+                    let diffX = e.pageX - pageX;
+
+                    if (nxtCol) nxtCol.style.width = nxtColWidth - diffX + "px";
+
+                    curCol.style.width = curColWidth + diffX + "px";
+                }
+            });
+
+            document.addEventListener("mouseup", function (e) {
+                curCol = undefined;
+                nxtCol = undefined;
+                pageX = undefined;
+                nxtColWidth = undefined;
+                curColWidth = undefined;
+            });
+        },
+
+        createDiv(height) {
+            let div = document.createElement("div");
+            div.style.top = 0;
+            div.style.right = 0;
+            div.style.width = "5px";
+            div.style.position = "absolute";
+            div.style.cursor = "col-resize";
+            div.style.userSelect = "none";
+            div.style.height = height + "px";
+            return div;
+        },
+
+        paddingDiff(col) {
+            if (this.getStyleVal(col, "box-sizing") == "border-box") {
+                return 0;
+            }
+
+            let padLeft = this.getStyleVal(col, "padding-left");
+            let padRight = this.getStyleVal(col, "padding-right");
+            return parseInt(padLeft) + parseInt(padRight);
+        },
+
+        getStyleVal(elm, css) {
+            return window.getComputedStyle(elm, null).getPropertyValue(css);
+        },
+    },
     async created() {
+        this.setProjectId(this.id);
         let query = this.$route.query;
         if (query) {
             this.pagination.page = +query.page || 1;
             this.pagination.itemsPerPage = +query.pageSize || 10;
         }
         await this.fetchDepTypes({ pageSize: 5000, projectId: this.id });
+
         await this.fetchDepColumns(this.id);
         await this.fetchDepartments({
             pageSize: this.$route.query.pageSize || 10,
@@ -166,6 +299,11 @@ export default {
     mounted() {
         const tableWrapper = document.querySelector(".v-data-table__wrapper");
         tableWrapper.addEventListener("scroll", this.handleWrapperScroll);
+    },
+    updated() {
+        const table = document.getElementsByTagName("table");
+        console.log(table[0]);
+        this.resizableGrid(table[0]);
     },
 };
 </script>
@@ -244,6 +382,92 @@ export default {
                     @pagination="handlePagination"
                     :items-per-page="itemsPerPage"
                 >
+                    <template v-slot:[`header.ref_id`]="{ header }">
+                        <span>{{ header.text }} </span>
+                        <v-icon small>mdi-pencil</v-icon>
+                    </template>
+
+                    <template v-slot:[`header.department_type`]="{ header }">
+                        <span>{{ header.text }} </span>
+                        <v-icon small>mdi-pencil</v-icon>
+                    </template>
+
+                    <template v-slot:[`item.ref_id`]="{ item, header }">
+                        <v-edit-dialog
+                            :key="header.value"
+                            :return-value.sync="item[header.value]"
+                            @open="
+                                () => {
+                                    refIdEdit = item[header.value];
+                                }
+                            "
+                            @close="
+                                () => {
+                                    handleCloseEditTextField(
+                                        refIdEdit,
+                                        item,
+                                        header
+                                    );
+                                }
+                            "
+                        >
+                            {{ item[header.value] }}
+                            <template v-slot:input>
+                                <v-text-field
+                                    v-model="item[header.value]"
+                                    label="Edit"
+                                    single-line
+                                    @change="handleChangeTextField"
+                                ></v-text-field>
+                            </template>
+                        </v-edit-dialog>
+                    </template>
+                    <template
+                        v-slot:[`item.department_type`]="{ item, header }"
+                    >
+                        <v-edit-dialog
+                            :key="header.value"
+                            :return-value.sync="item[header.value]"
+                            @open="
+                                () => {
+                                    departmentTypeEdit = {
+                                        id: item.department_type.id,
+                                        name: item[header.value],
+                                    };
+                                }
+                            "
+                            @close="
+                                () => {
+                                    handleCloseEditCombobox(item, header);
+                                }
+                            "
+                        >
+                            {{ item[header.value] }}
+                            <template v-slot:input>
+                                <v-combobox
+                                    v-model="item[header.value]"
+                                    :items="depTypes"
+                                    item-text="name"
+                                    item-value="id"
+                                    label="Department Type"
+                                    color="primary"
+                                    class="px-3"
+                                    clearable
+                                    return-object
+                                    @change="
+                                        (newValue) => {
+                                            handleChangeCombobox(
+                                                newValue,
+                                                item,
+                                                header
+                                            );
+                                        }
+                                    "
+                                >
+                                </v-combobox>
+                            </template>
+                        </v-edit-dialog>
+                    </template>
                     <template v-slot:[`item.state`]="{ item }">
                         <v-chip color="green" dark small>
                             {{

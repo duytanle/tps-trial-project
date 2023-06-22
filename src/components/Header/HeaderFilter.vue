@@ -27,6 +27,7 @@ export default {
             listEditNumber: "getListEditNumber",
             detailDep: "getDetailDepartment",
             infoEditDep: "getInfoEditDep",
+            projectId: "getProjectId",
         }),
         depTypesName() {
             return this.depTypes.map((item) => item.text);
@@ -34,16 +35,37 @@ export default {
     },
 
     watch: {
-        depChosen(newValue) {
-            console.log(newValue);
+        async depChosen(newValue) {
+            const { pageSize, sortBy } = this.$route.query;
+            if (newValue) {
+                await this.fetchDepartments({
+                    pageSize: pageSize || 10,
+                    page: 1,
+                    sort: sortBy || "name",
+                    projectId: this.projectId,
+                    state: "ACTIVE",
+                    departmentType: newValue.id,
+                });
+            } else {
+                await this.fetchDepartments({
+                    pageSize: pageSize || 10,
+                    page: 1,
+                    sort: sortBy || "name",
+                    projectId: this.projectId,
+                    state: "ACTIVE",
+                });
+            }
         },
     },
     methods: {
-        ...mapActions(["fetchDetailDepartment"]),
+        ...mapActions(["fetchDetailDepartment", "fetchDepartments"]),
         async handleEditDepartment() {
             this.loading = true;
             await this.fetchDetailDepartment(this.infoEditDep.id);
             this.loading = false;
+        },
+        clearFilter() {
+            this.depChosen = null;
         },
     },
 };
@@ -111,6 +133,7 @@ export default {
                 <dialog-create-edit
                     cssLink="edit-dialog"
                     dialogName="Edit Department"
+                    type="edit"
                 ></dialog-create-edit>
             </div>
 
@@ -160,6 +183,30 @@ export default {
                                     </v-expansion-panel-content>
                                 </v-expansion-panel>
                             </v-expansion-panels>
+                        </div>
+                    </template>
+                    <template #dialogAction="{ closeDialog }">
+                        <div class="pr-2 pl-0 py-0 col col-6">
+                            <v-btn
+                                outlined
+                                color="primary"
+                                class="text-capitalize"
+                                :style="{ width: '100%' }"
+                                @click="() => clearFilter()"
+                            >
+                                Clear Filter
+                            </v-btn>
+                        </div>
+                        <div class="pl-2 pr-0 py-0 col col-6">
+                            <v-btn
+                                depressed
+                                color="primary"
+                                class="text-capitalize"
+                                :style="{ width: '100%' }"
+                                @click="() => closeDialog()"
+                            >
+                                Done
+                            </v-btn>
                         </div>
                     </template>
                 </dialog-custom>
