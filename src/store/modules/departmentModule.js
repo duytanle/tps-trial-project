@@ -9,6 +9,7 @@ const department = {
         departments: [],
         metaDepartment: {},
         pagination: {},
+        projectId: null,
     },
     getters: {
         getDepChosen: (state) => {
@@ -35,6 +36,10 @@ const department = {
         },
         getPagination: (state) => {
             return state.pagination;
+        },
+
+        getProjectId: (state) => {
+            return state.projectId;
         },
     },
     mutations: {
@@ -64,6 +69,10 @@ const department = {
 
         setPagination: (state, payload) => {
             state.pagination = { ...state.pagination, ...payload };
+        },
+
+        setProjectId: (state, payload) => {
+            state.projectId = payload;
         },
     },
     actions: {
@@ -99,14 +108,15 @@ const department = {
 
         async fetchDepartments(
             { commit },
-            { pageSize, page, sort, projectId, state }
+            { pageSize, page, sort, projectId, state, departmentType }
         ) {
             const res = await api.getDepartments(
                 pageSize,
                 page,
                 sort,
                 projectId,
-                state
+                state,
+                departmentType
             );
             commit("setMetaDepartment", res.meta);
             commit("setDepartments", res.results);

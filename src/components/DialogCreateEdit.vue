@@ -1,8 +1,10 @@
 <script>
 import DialogCustom from "./DialogCustom.vue";
-import { mapGetters } from "vuex";
+import DialogConfirm from "./DialogConfirm.vue";
+import api from "../api/index";
+import { mapActions, mapGetters } from "vuex";
 export default {
-    components: { DialogCustom },
+    components: { DialogCustom, DialogConfirm },
     props: {
         dialogName: String,
         cssLink: String,
@@ -29,6 +31,8 @@ export default {
             depTypes: "getDepTypes",
             infoEditDep: "getInfoEditDep",
             detailDep: "getDetailDepartment",
+            loading: "getLoading",
+            projectId: "getProjectId",
         }),
     },
     watch: {
@@ -40,21 +44,67 @@ export default {
         },
         detailDep(newValue) {
             this.dep.name = newValue.name;
-            this.dep.id = newValue.id;
+            this.dep.id = newValue.ref_id;
             this.dep.notes = newValue.notes;
-            this.dep.state = [newValue.state];
+            this.dep.state = [
+                newValue.state.toLowerCase().charAt(0).toUpperCase() +
+                    newValue.state.toLowerCase().slice(1),
+            ];
+            this.dep.type = {
+                id: newValue.department_type.id,
+                name: newValue.department_type.option_name,
+            };
         },
     },
     methods: {
-        save() {
+        ...mapActions(["fetchEditDepartment"]),
+        async save(closeDialog) {
             this.rules.name = [(v) => !!v || "This field is required"];
             this.rules.type = [(v) => !!v || "This field is required"];
-            let self = this;
-            setTimeout(function () {
-                if (!self.$refs.addEditForm.validate()) {
-                    self.snackbar = true;
+
+            if (!this.$refs.addEditForm.validate()) {
+                this.snackbar = true;
+            } else {
+                if (this.type === "edit") {
+                    let editInfo = {
+                        ...this.detailDep,
+                        modified_at: new Date().toISOString(),
+                        name: this.dep.name,
+                        ref_id: this.dep.id,
+                        notes: this.dep.notes,
+                        state: this.dep.state[0].toUpperCase(),
+                        department_type: this.dep.type.id,
+                    };
+                    await this.fetchEditDepartment({
+                        depId: this.detailDep.id,
+                        editInfo,
+                    });
+                    closeDialog();
+                } else {
+                    console.log(this.dep.name);
+                    let createInfo = {
+                        projectId: this.projectId,
+                        name: this.dep.name,
+                        refId: this.dep.id,
+                        state: this.dep.state[0].toLocaleUpperCase(),
+                        notes: this.dep.notes,
+                        costCenter: null,
+                        division: null,
+                        departmentType: this.dep.type.id,
+                    };
+
+                    await api.createDepartment(createInfo);
+                    closeDialog();
                 }
-            });
+            }
+        },
+        async saveAndCreateAnother() {
+            await this.save(() => {});
+            this.dep.name = "";
+            this.dep.type = null;
+            this.dep.id = "";
+            this.dep.state = ["Active"];
+            this.dep.notes = "";
         },
     },
 };
@@ -88,6 +138,7 @@ export default {
                         required
                         color="primary"
                         v-model="dep.type"
+                        :loading="loading"
                     ></v-combobox>
                     <v-text-field
                         v-model="dep.id"
@@ -99,6 +150,7 @@ export default {
                         :items="['Active', 'Inactive', 'Redacted']"
                         label="Active*"
                         color="primary"
+                        :loading="loading"
                     ></v-combobox>
                     <v-text-field
                         v-model="dep.notes"
@@ -111,37 +163,47 @@ export default {
                 </div>
             </v-form>
         </template>
-        <template #dialogAction>
+        <template #dialogAction="{ closeDialog }">
             <div class="pr-2 pl-0 py-0 col col-6">
                 <v-btn
                     outlined
                     color="primary"
-                    class="font-button"
+                    class="text-capitalize"
                     v-if="type === 'create'"
+                    @click="saveAndCreateAnother"
                 >
                     Save and Create Another
                 </v-btn>
-                <v-btn
-                    outlined
-                    color="primary"
-                    class="font-button"
-                    :style="{ width: '100%' }"
+                <dialog-confirm
                     v-else
+                    @update:close="($event) => (!$event ? closeDialog() : null)"
                 >
-                    Cancel
-                </v-btn>
+                    <template v-slot:openConfirmDialog="{ activator }">
+                        <v-btn
+                            outlined
+                            color="primary"
+                            class="text-capitalize"
+                            :style="{ width: '100%' }"
+                            v-bind="activator.attrs"
+                            v-on="activator.on"
+                        >
+                            Cancel
+                        </v-btn>
+                    </template>
+                </dialog-confirm>
             </div>
             <div class="pl-2 pr-0 py-0 col col-6">
                 <v-btn
                     depressed
                     color="primary"
-                    class="font-button"
+                    class="text-capitalize"
                     :style="{ width: '100%' }"
-                    @click="save"
+                    @click="() => save(closeDialog)"
                 >
                     Save
                 </v-btn>
             </div>
+
             <v-snackbar
                 v-model="snackbar"
                 color="rgb(184, 15, 0)"
