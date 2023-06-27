@@ -66,6 +66,11 @@ const api = {
     async updateDepartment(depId, valueUpdate) {
         await axios.patch(`/api/departments/${depId}`, valueUpdate);
     },
+
+    async sortDepartment(querySortString) {
+        const res = await axios.get(`/api/departments/${querySortString}`);
+        return res.data;
+    },
 };
 
 export default api;

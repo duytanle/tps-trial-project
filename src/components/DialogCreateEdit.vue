@@ -20,7 +20,7 @@ export default {
                 name: "",
                 type: null,
                 id: "",
-                state: ["Active"],
+                state: "ACTIVE",
                 notes: "",
             },
             snackbar: false,
@@ -66,15 +66,17 @@ export default {
                 this.snackbar = true;
             } else {
                 if (this.type === "edit") {
+                    console.log(this.dep.state);
                     let editInfo = {
                         ...this.detailDep,
                         modified_at: new Date().toISOString(),
                         name: this.dep.name,
                         ref_id: this.dep.id,
                         notes: this.dep.notes,
-                        state: this.dep.state[0].toUpperCase(),
+                        state: this.dep.state.toUpperCase(),
                         department_type: this.dep.type.id,
                     };
+
                     await this.fetchEditDepartment({
                         depId: this.detailDep.id,
                         editInfo,
@@ -86,7 +88,7 @@ export default {
                         projectId: this.projectId,
                         name: this.dep.name,
                         refId: this.dep.id,
-                        state: this.dep.state[0].toLocaleUpperCase(),
+                        state: this.dep.state.toUpperCase(),
                         notes: this.dep.notes,
                         costCenter: null,
                         division: null,

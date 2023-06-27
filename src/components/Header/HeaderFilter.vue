@@ -58,7 +58,11 @@ export default {
         },
     },
     methods: {
-        ...mapActions(["fetchDetailDepartment", "fetchDepartments"]),
+        ...mapActions([
+            "fetchDetailDepartment",
+            "fetchDepartments",
+            "fetchSortDepartment",
+        ]),
         async handleEditDepartment() {
             this.loading = true;
             await this.fetchDetailDepartment(this.infoEditDep.id);
@@ -66,6 +70,36 @@ export default {
         },
         clearFilter() {
             this.depChosen = null;
+        },
+        async handleSearchDep(searchValue) {
+            let query = this.$route.query;
+            let querySortRouter = "";
+            let pageSize = query.pageSize;
+            delete query.pageSize;
+            query.page_size = pageSize;
+            query.search = searchValue;
+
+            if (query.sort) {
+                querySortRouter = query.sort;
+                query.sort = `${
+                    query.desc ? `-${query.sort}` : `${query.sort}`
+                }`;
+            }
+
+            const querySortString =
+                "?" +
+                new URLSearchParams({
+                    ...query,
+                    page_size: pageSize,
+                }).toString();
+
+            query.sort = querySortRouter;
+
+            this.$router.push({
+                query,
+            });
+
+            await this.fetchSortDepartment(querySortString);
         },
     },
 };
@@ -88,6 +122,7 @@ export default {
 
         <search-component
             customClass="dep__search flex-grow-1"
+            :handleSearch="handleSearchDep"
         ></search-component>
 
         <div class="dep__actions d-flex ml-auto">
