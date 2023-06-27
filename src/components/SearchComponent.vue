@@ -14,7 +14,7 @@ export default {
             clearTimeout(this.debounce);
             this.debounce = setTimeout(() => {
                 this.handleSearch(searchValue);
-            }, 700);
+            }, 800);
         },
     },
 };

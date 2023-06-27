@@ -67,8 +67,15 @@ const api = {
         await axios.patch(`/api/departments/${depId}`, valueUpdate);
     },
 
-    async sortDepartment(querySortString) {
-        const res = await axios.get(`/api/departments/${querySortString}`);
+    async sortDepartment(querySortString, signal) {
+        let res;
+        if (signal) {
+            res = await axios.get(`/api/departments/${querySortString}`, {
+                signal,
+            });
+        } else {
+            res = await axios.get(`/api/departments/${querySortString}`);
+        }
         return res.data;
     },
 };

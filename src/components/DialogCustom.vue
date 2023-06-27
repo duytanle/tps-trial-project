@@ -57,9 +57,10 @@ export default {
                 <v-divider></v-divider>
 
                 <slot name="dialogContent"></slot>
+
                 <v-spacer></v-spacer>
-                <v-divider></v-divider>
-                <div class="dialog__action py-2 d-flex">
+                <div class="dialog__action">
+                    <v-divider></v-divider>
                     <slot
                         name="dialogAction"
                         :closeDialog="
@@ -76,7 +77,7 @@ export default {
 <style>
 .right-dialog {
     max-width: 500px !important;
-    min-height: 100%;
+    min-height: 100vh;
     background: white;
     border-radius: 0 !important;
     right: 0 !important;
@@ -88,4 +89,19 @@ export default {
     font-weight: 500 !important;
     font-size: 1.4rem !important;
 }
+
+/*.dialog__header {
+    position: sticky;
+    top: 0;
+    z-index: 9999999;
+    background-color: white;
+}
+
+.dialog__action {
+    position: sticky;
+    bottom: 0;
+    z-index: 9999;
+    background-color: white;
+}
+*/
 </style>

@@ -215,7 +215,7 @@ export default {
 
             const querySortString =
                 "?" + new URLSearchParams(querySortObject).toString();
-            await this.fetchSortDepartment(querySortString);
+            await this.fetchSortDepartment({ querySortString });
             if (this.pagination) {
                 this.$router.push({
                     query: {

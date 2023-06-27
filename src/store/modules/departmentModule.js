@@ -122,8 +122,8 @@ const department = {
             commit("setDepartments", res.results);
         },
 
-        async fetchSortDepartment({ commit }, querySortString) {
-            const res = await api.sortDepartment(querySortString);
+        async fetchSortDepartment({ commit }, { querySortString, signal }) {
+            const res = await api.sortDepartment(querySortString, signal);
             commit("setMetaDepartment", res.meta);
             commit("setDepartments", res.results);
         },

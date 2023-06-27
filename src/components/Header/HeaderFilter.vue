@@ -6,6 +6,8 @@ import ButtonCustom from "../ButtonCustom.vue";
 import DialogCreateEdit from "../DialogCreateEdit.vue";
 import DialogCustom from "../DialogCustom.vue";
 import MenuCustom from "../MenuCustom.vue";
+import draggable from "vuedraggable";
+import allDepColumns from "../../utils/allDepColums";
 export default {
     components: {
         BottomSheetCustom,
@@ -14,11 +16,29 @@ export default {
         DialogCreateEdit,
         DialogCustom,
         MenuCustom,
+        draggable,
     },
     data() {
         return {
             depChosen: null,
             loading: false,
+            controller: null,
+            settingData: {
+                settingName: [
+                    { id: 0, name: "Default" },
+                    { id: 1, name: "Custom 1" },
+                    { id: 3, name: "Custom 2" },
+                ],
+                settingFreezeColumn: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            },
+            columnChecked: [],
+            isAllColumn: [],
+            settingChosen: {
+                settingName: ["Default"],
+                settingFreezeColumn: [2],
+            },
+
+            drag: false,
         };
     },
     computed: {
@@ -31,6 +51,11 @@ export default {
         }),
         depTypesName() {
             return this.depTypes.map((item) => item.text);
+        },
+        columnArray() {
+            return Object.entries(allDepColumns).map(([item, value]) => {
+                return { id: item, name: value };
+            });
         },
     },
 
@@ -56,6 +81,13 @@ export default {
                 });
             }
         },
+        myArray(newValue) {
+            console.log(newValue);
+        },
+        isAllColumn() {
+            this.columnChecked =
+                this.isAllColumn.length > 0 ? this.columnArray : [];
+        },
     },
     methods: {
         ...mapActions([
@@ -72,34 +104,53 @@ export default {
             this.depChosen = null;
         },
         async handleSearchDep(searchValue) {
-            let query = this.$route.query;
-            let querySortRouter = "";
-            let pageSize = query.pageSize;
-            delete query.pageSize;
-            query.page_size = pageSize;
-            query.search = searchValue;
-
-            if (query.sort) {
-                querySortRouter = query.sort;
-                query.sort = `${
-                    query.desc ? `-${query.sort}` : `${query.sort}`
-                }`;
+            if (this.controller) {
+                this.controller.abort();
             }
+            this.controller = new AbortController();
+            const signal = this.controller.signal;
+            let query = this.$route.query;
+            let queryObject = {
+                page: 1,
+                pageSize: 10,
+                sortBy: "name",
+                desc: false,
+                search: searchValue,
+            };
+            let queryObjectAPI = {
+                page: 1,
+                page_size: 10,
+                sort: "name",
+                project: this.projectId,
+                search: searchValue,
+                state: "ACTIVE",
+            };
 
+            if (Object.keys(query).length > 0) {
+                queryObject = { ...queryObject, ...query, search: searchValue };
+                console.log(queryObject);
+                queryObjectAPI = {
+                    page: query.page || 1,
+                    page_size: query.pageSize || 10,
+                    sort: query.sort
+                        ? `${
+                              query.desc === "true"
+                                  ? `-${query.sort}`
+                                  : query.sort
+                          }`
+                        : "name",
+                    project: this.projectId,
+                    search: searchValue,
+                };
+            }
             const querySortString =
-                "?" +
-                new URLSearchParams({
-                    ...query,
-                    page_size: pageSize,
-                }).toString();
-
-            query.sort = querySortRouter;
+                "?" + new URLSearchParams(queryObjectAPI).toString();
 
             this.$router.push({
-                query,
+                query: queryObject,
             });
 
-            await this.fetchSortDepartment(querySortString);
+            await this.fetchSortDepartment({ querySortString, signal });
         },
     },
 };
@@ -221,27 +272,29 @@ export default {
                         </div>
                     </template>
                     <template #dialogAction="{ closeDialog }">
-                        <div class="pr-2 pl-0 py-0 col col-6">
-                            <v-btn
-                                outlined
-                                color="primary"
-                                class="text-capitalize"
-                                :style="{ width: '100%' }"
-                                @click="() => clearFilter()"
-                            >
-                                Clear Filter
-                            </v-btn>
-                        </div>
-                        <div class="pl-2 pr-0 py-0 col col-6">
-                            <v-btn
-                                depressed
-                                color="primary"
-                                class="text-capitalize"
-                                :style="{ width: '100%' }"
-                                @click="() => closeDialog()"
-                            >
-                                Done
-                            </v-btn>
+                        <div class="py-2 d-flex">
+                            <div class="pr-2 pl-0 py-0 col col-6">
+                                <v-btn
+                                    outlined
+                                    color="primary"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                    @click="() => clearFilter()"
+                                >
+                                    Clear Filter
+                                </v-btn>
+                            </div>
+                            <div class="pl-2 pr-0 py-0 col col-6">
+                                <v-btn
+                                    depressed
+                                    color="primary"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                    @click="() => closeDialog()"
+                                >
+                                    Done
+                                </v-btn>
+                            </div>
                         </div>
                     </template>
                 </dialog-custom>
@@ -255,6 +308,267 @@ export default {
                 >
                 </button-custom>
                 <dialog-custom dialogName="Settings" cssLink="settings-dialog">
+                    <template v-slot:dialogContent>
+                        <div
+                            class="settings__content py-4"
+                            style="
+                                max-height: 90vh;
+                                overflow-y: scroll;
+                                overflow-x: hidden;
+                            "
+                        >
+                            <div class="settings__setting">
+                                <div
+                                    class="font-weight-bold"
+                                    style="font-size: 1.7rem"
+                                >
+                                    Setting
+                                </div>
+                                <v-container fluid>
+                                    <v-row class="py-4">
+                                        <v-col cols="8" class="pa-0">
+                                            <v-combobox
+                                                v-model="
+                                                    settingChosen.settingName
+                                                "
+                                                :items="settingData.settingName"
+                                                item-text="name"
+                                                item-value="id"
+                                                label="Setting Names"
+                                                color="primary"
+                                                class="pa-0"
+                                                clearable
+                                                return-object
+                                            >
+                                                <template
+                                                    v-slot:item="{ item }"
+                                                >
+                                                    <div
+                                                        class="d-flex align-center flex-grow-1"
+                                                    >
+                                                        <p class="mb-0">
+                                                            {{ item.name }}
+                                                        </p>
+                                                        <v-btn
+                                                            text
+                                                            color="red"
+                                                            class="text-capitalize ml-auto"
+                                                            >Remove</v-btn
+                                                        >
+                                                    </div>
+                                                </template>
+                                            </v-combobox>
+                                        </v-col>
+                                        <v-col cols="4" class="py-0">
+                                            <v-btn
+                                                class="col-4 text-capitalize"
+                                                color="primary"
+                                                min-width="100%"
+                                            >
+                                                <v-icon>mdi-plus</v-icon>
+                                                Add New
+                                            </v-btn>
+                                        </v-col>
+                                    </v-row>
+                                </v-container>
+                            </div>
+                            <div class="settings__visibility">
+                                <div
+                                    class="font-weight-bold"
+                                    style="font-size: 1.7rem"
+                                >
+                                    Visibility
+                                </div>
+                                <div class="check-box pl-2">
+                                    <v-checkbox
+                                        label="Show Redacted Departments"
+                                        hide-details
+                                    ></v-checkbox>
+                                    <v-checkbox
+                                        label="Show Inactive Departments"
+                                        hide-details
+                                    ></v-checkbox>
+                                </div>
+                                <v-combobox
+                                    v-model="settingChosen.settingFreezeColumn"
+                                    :items="settingData.settingFreezeColumn"
+                                    label="Freeze Lefthand column"
+                                    color="primary"
+                                    class="pa-0 col col-8 mt-8"
+                                    clearable
+                                >
+                                </v-combobox>
+                            </div>
+                            <div
+                                class="settings__column"
+                                style="min-height: 500px"
+                            >
+                                <div class="title">
+                                    <div
+                                        class="font-weight-bold"
+                                        style="font-size: 1.7rem"
+                                    >
+                                        Columns
+                                    </div>
+                                    <div
+                                        class="sub__title"
+                                        style="font-size: 1.4rem"
+                                    >
+                                        Choose which columns to display, and
+                                        define their order.
+                                    </div>
+                                </div>
+                                <div
+                                    class="row my-1"
+                                    style="border-top: 2px solid grey"
+                                >
+                                    <div
+                                        class="col col-6 pr-0"
+                                        style="border-right: 2px solid grey"
+                                    >
+                                        <div class="title">
+                                            <div
+                                                class="font-weight-bold"
+                                                style="font-size: 1.4rem"
+                                            >
+                                                Available columns
+                                            </div>
+                                            <div
+                                                class="sub__title"
+                                                style="font-size: 1.4rem"
+                                            >
+                                                Select columns to add
+                                            </div>
+                                        </div>
+                                        <div class="search mt-4">
+                                            <search-component></search-component>
+                                        </div>
+                                        <v-list class="list column">
+                                            <v-list-item
+                                                class="select-all px-2"
+                                            >
+                                                <v-list-item-action
+                                                    class="mr-3"
+                                                >
+                                                    <v-checkbox
+                                                        v-model="isAllColumn"
+                                                        hide-details
+                                                        class="mt-0"
+                                                        value="all"
+                                                        :indeterminate="
+                                                            columnChecked.length <
+                                                            columnArray.length
+                                                        "
+                                                        color="primary"
+                                                    >
+                                                    </v-checkbox>
+                                                </v-list-item-action>
+                                                <v-list-item-content>
+                                                    Select All
+                                                </v-list-item-content>
+                                            </v-list-item>
+                                            <v-list-item
+                                                v-for="column in columnArray"
+                                                :key="column.id"
+                                                class="pl-2 pr-0"
+                                            >
+                                                <v-list-item-action
+                                                    class="mr-3"
+                                                >
+                                                    <v-checkbox
+                                                        v-model="columnChecked"
+                                                        :value="column"
+                                                        hide-details
+                                                        class="mt-0"
+                                                    >
+                                                    </v-checkbox>
+                                                </v-list-item-action>
+                                                <v-list-item-content>
+                                                    <v-list-item-title
+                                                        style="
+                                                            white-space: nowrap;
+                                                            overflow: hidden;
+                                                            text-overflow: ellipsis;
+                                                        "
+                                                    >
+                                                        {{ column.name }}
+                                                    </v-list-item-title>
+                                                </v-list-item-content>
+                                            </v-list-item>
+                                        </v-list>
+                                    </div>
+                                    <div class="col col-6">
+                                        <div class="title">
+                                            <div
+                                                class="font-weight-bold"
+                                                style="font-size: 1.4rem"
+                                            >
+                                                Selected Columns
+                                            </div>
+                                            <div
+                                                class="sub__title"
+                                                style="font-size: 1.4rem"
+                                            >
+                                                Drag and drop to reorder
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="drag-column mt-6"
+                                            style="cursor: move"
+                                        >
+                                            <draggable
+                                                v-model="columnChecked"
+                                                group="people"
+                                                @start="drag = true"
+                                                @end="drag = false"
+                                            >
+                                                <div
+                                                    v-for="element in columnChecked"
+                                                    :key="element.id"
+                                                    class="row align-center"
+                                                >
+                                                    <div class="col-2">
+                                                        <v-icon>
+                                                            mdi-drag-horizontal-variant
+                                                        </v-icon>
+                                                    </div>
+                                                    <p class="col-10 mb-0">
+                                                        {{ element.name }}
+                                                    </p>
+                                                </div>
+                                            </draggable>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <template #dialogAction="{ closeDialog }">
+                        <div class="py-2 d-flex">
+                            <div class="pr-2 pl-0 py-0 col col-6">
+                                <v-btn
+                                    outlined
+                                    color="primary"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                    @click="() => clearFilter()"
+                                >
+                                    Clear Filter
+                                </v-btn>
+                            </div>
+                            <div class="pl-2 pr-0 py-0 col col-6">
+                                <v-btn
+                                    depressed
+                                    color="primary"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                    @click="() => closeDialog()"
+                                >
+                                    Done
+                                </v-btn>
+                            </div>
+                        </div>
+                    </template>
                 </dialog-custom>
             </div>
             <div class="dep__more">
