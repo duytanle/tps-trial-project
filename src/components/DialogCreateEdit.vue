@@ -20,7 +20,7 @@ export default {
                 name: "",
                 type: null,
                 id: "",
-                state: ["Active"],
+                state: "ACTIVE",
                 notes: "",
             },
             snackbar: false,
@@ -72,21 +72,27 @@ export default {
                         name: this.dep.name,
                         ref_id: this.dep.id,
                         notes: this.dep.notes,
-                        state: this.dep.state[0].toUpperCase(),
+                        state:
+                            typeof this.dep.state === "string"
+                                ? this.dep.state.toUpperCase()
+                                : this.dep.state[0].toUpperCase(),
                         department_type: this.dep.type.id,
                     };
+
                     await this.fetchEditDepartment({
                         depId: this.detailDep.id,
                         editInfo,
                     });
                     closeDialog();
                 } else {
-                    console.log(this.dep.name);
                     let createInfo = {
                         projectId: this.projectId,
                         name: this.dep.name,
                         refId: this.dep.id,
-                        state: this.dep.state[0].toLocaleUpperCase(),
+                        state:
+                            typeof this.dep.state === "string"
+                                ? this.dep.state.toUpperCase()
+                                : this.dep.state[0].toUpperCase(),
                         notes: this.dep.notes,
                         costCenter: null,
                         division: null,
@@ -164,60 +170,64 @@ export default {
             </v-form>
         </template>
         <template #dialogAction="{ closeDialog }">
-            <div class="pr-2 pl-0 py-0 col col-6">
-                <v-btn
-                    outlined
-                    color="primary"
-                    class="text-capitalize"
-                    v-if="type === 'create'"
-                    @click="saveAndCreateAnother"
+            <div class="py-2 d-flex">
+                <div class="pr-2 pl-0 py-0 col col-6">
+                    <v-btn
+                        outlined
+                        color="primary"
+                        class="text-capitalize"
+                        v-if="type === 'create'"
+                        @click="saveAndCreateAnother"
+                    >
+                        Save and Create Another
+                    </v-btn>
+                    <dialog-confirm
+                        v-else
+                        @update:close="
+                            ($event) => (!$event ? closeDialog() : null)
+                        "
+                    >
+                        <template v-slot:openConfirmDialog="{ activator }">
+                            <v-btn
+                                outlined
+                                color="primary"
+                                class="text-capitalize"
+                                :style="{ width: '100%' }"
+                                v-bind="activator.attrs"
+                                v-on="activator.on"
+                            >
+                                Cancel
+                            </v-btn>
+                        </template>
+                    </dialog-confirm>
+                </div>
+                <div class="pl-2 pr-0 py-0 col col-6">
+                    <v-btn
+                        depressed
+                        color="primary"
+                        class="text-capitalize"
+                        :style="{ width: '100%' }"
+                        @click="() => save(closeDialog)"
+                    >
+                        Save
+                    </v-btn>
+                </div>
+
+                <v-snackbar
+                    v-model="snackbar"
+                    color="rgb(184, 15, 0)"
+                    content-class="text-h6"
+                    class="py-16"
                 >
-                    Save and Create Another
-                </v-btn>
-                <dialog-confirm
-                    v-else
-                    @update:close="($event) => (!$event ? closeDialog() : null)"
-                >
-                    <template v-slot:openConfirmDialog="{ activator }">
-                        <v-btn
-                            outlined
-                            color="primary"
-                            class="text-capitalize"
-                            :style="{ width: '100%' }"
-                            v-bind="activator.attrs"
-                            v-on="activator.on"
-                        >
-                            Cancel
+                    Please correct the errors highlighted above and try again.
+
+                    <template v-slot:action="{ attrs }">
+                        <v-btn icon v-bind="attrs" @click="snackbar = false">
+                            <v-icon>mdi-close</v-icon>
                         </v-btn>
                     </template>
-                </dialog-confirm>
+                </v-snackbar>
             </div>
-            <div class="pl-2 pr-0 py-0 col col-6">
-                <v-btn
-                    depressed
-                    color="primary"
-                    class="text-capitalize"
-                    :style="{ width: '100%' }"
-                    @click="() => save(closeDialog)"
-                >
-                    Save
-                </v-btn>
-            </div>
-
-            <v-snackbar
-                v-model="snackbar"
-                color="rgb(184, 15, 0)"
-                content-class="text-h6"
-                class="py-16"
-            >
-                Please correct the errors highlighted above and try again.
-
-                <template v-slot:action="{ attrs }">
-                    <v-btn icon v-bind="attrs" @click="snackbar = false">
-                        <v-icon>mdi-close</v-icon>
-                    </v-btn>
-                </template>
-            </v-snackbar>
         </template>
     </dialog-custom>
 </template>

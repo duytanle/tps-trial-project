@@ -2,6 +2,7 @@
 import { mapActions, mapGetters, mapMutations } from "vuex";
 import HeaderFilter from "../components/Header/HeaderFilter.vue";
 import api from "../api/index";
+import allDepColumns from "../utils/allDepColums";
 export default {
     components: { HeaderFilter },
     props: ["id"],
@@ -15,14 +16,14 @@ export default {
             selectedPage: 1,
             itemsPerPage: 10,
             toTopBtn: false,
-            pagination: {
-                page: 1,
-                itemsPerPage: 10,
-            },
+            pagination: false,
+            queryPagination: null,
             selectedDep: [],
             refIdEdit: "",
             departmentTypeEdit: null,
             directlyEdit: false,
+            tableNode: null,
+            resizeColumn: {},
         };
     },
     computed: {
@@ -35,25 +36,25 @@ export default {
         }),
     },
     watch: {
-        pagination: {
-            handler: async function (newValue) {
-                this.$router.push({
-                    query: {
-                        pageSize: newValue.itemsPerPage,
-                        page: newValue.page,
-                    },
-                });
-                await this.fetchDepartments({
-                    pageSize: newValue.itemsPerPage,
-                    page: newValue.page,
-                    sort: "name",
-                    projectId: this.id,
-                    state: "ACTIVE",
-                });
-                this.setDesserts();
-            },
-            deep: true,
-        },
+        // pagination: {
+        //     handler: async function (newValue) {
+        //         console.log("pagination", newValue);
+        //         this.$router.push({
+        //             query: {
+        //                 pageSize: newValue.itemsPerPage,
+        //                 page: newValue.page,
+        //             },
+        //         });
+        //         await this.fetchDepartments({
+        //             pageSize: newValue.itemsPerPage,
+        //             page: newValue.page,
+        //             sort: "name",
+        //             projectId: this.id,
+        //             state: "ACTIVE",
+        //         });
+        //     },
+        //     deep: true,
+        // },
         selectedDep: function () {
             this.setListEditDep(this.selectedDep);
         },
@@ -63,17 +64,22 @@ export default {
     },
 
     methods: {
-        ...mapActions(["fetchDepColumns", "fetchDepartments", "fetchDepTypes"]),
+        ...mapActions([
+            "fetchDepColumns",
+            "fetchDepartments",
+            "fetchDepTypes",
+            "fetchSortDepartment",
+        ]),
         ...mapMutations(["setListEditDep", "setProjectId"]),
         handlePagination(pagination) {
-            if (
-                this.pagination.itemsPerPage !== pagination.itemsPerPage ||
-                this.pagination.page !== pagination.page
-            ) {
-                // this.selectedPage = pagination.page;
-                this.pagination.page = pagination.page;
-                this.pagination.itemsPerPage = pagination.itemsPerPage;
-            }
+            // if (
+            //     this.pagination.itemsPerPage !== pagination.itemsPerPage ||
+            //     this.pagination.page !== pagination.page
+            // ) {
+            //     // this.pagination.page = this.selectedPage;
+            //     this.pagination.page = pagination.page;
+            //     this.pagination.itemsPerPage = pagination.itemsPerPage;
+            // }
         },
 
         footerPagination() {
@@ -120,31 +126,6 @@ export default {
             tableWrapper.scrollTop = 0;
         },
 
-        customSort(items, index, sortBy, isDesc) {
-            console.log(items, sortBy, isDesc);
-            items.sort((a, b) => {
-                if (index[0] == "date") {
-                    if (!isDesc[0]) {
-                        return new Date(b[index]) - new Date(a[index]);
-                    } else {
-                        return new Date(a[index]) - new Date(b[index]);
-                    }
-                } else {
-                    if (typeof a[index] !== "undefined") {
-                        if (!isDesc[0]) {
-                            return a[index]
-                                .toLowerCase()
-                                .localeCompare(b[index].toLowerCase());
-                        } else {
-                            return b[index]
-                                .toLowerCase()
-                                .localeCompare(a[index].toLowerCase());
-                        }
-                    }
-                }
-            });
-            return items;
-        },
         async handleCloseEditTextField(valueEdit, itemEdit, headerItem) {
             if (this.directlyEdit) {
                 itemEdit[headerItem.value] = valueEdit;
@@ -183,115 +164,101 @@ export default {
             }
         },
 
-        resizableGrid(table) {
-            let row = table.querySelectorAll("tr")[0];
-            let cols = row ? row.children : undefined;
-            console.log(cols);
-            if (!cols) return;
-
-            table.style.overflow = "hidden";
-            let tableHeight = table.offsetHeight;
-
-            for (const element of cols) {
-                console.log(element);
-                let div = this.createDiv(tableHeight);
-                element.appendChild(div);
-                element.style.position = "relative";
-                this.setListeners(div);
-            }
+        handleMouseDownResize(e) {
+            this.resizeColumn.tableWidth =
+                document.getElementsByTagName("table")[0].offsetWidth;
+            this.resizeColumn.curCol = e.target.parentElement;
+            this.resizeColumn.pageX = e.pageX;
+            this.resizeColumn.curColWidth =
+                this.resizeColumn.curCol.offsetWidth - 20;
         },
-
-        setListeners(div) {
-            let pageX, curCol, nxtCol, curColWidth, nxtColWidth;
-            let temp = this.paddingDiff;
-            div.addEventListener("mousedown", function (e) {
-                curCol = e.target.parentElement;
-                nxtCol = curCol.nextElementSibling;
-                pageX = e.pageX;
-
-                let padding = temp(curCol);
-
-                curColWidth = curCol.offsetWidth - padding;
-                if (nxtCol) nxtColWidth = nxtCol.offsetWidth - padding;
-            });
-
-            div.addEventListener("mouseover", function (e) {
-                e.target.style.borderRight = "2px solid #0000ff";
-            });
-
-            div.addEventListener("mouseout", function (e) {
-                e.target.style.borderRight = "";
-            });
-
-            document.addEventListener("mousemove", function (e) {
-                if (curCol) {
-                    let diffX = e.pageX - pageX;
-
-                    if (nxtCol) nxtCol.style.width = nxtColWidth - diffX + "px";
-
-                    curCol.style.width = curColWidth + diffX + "px";
+        handleMouseMoveResize(e) {
+            if (this.resizeColumn.curCol) {
+                let diffX = e.pageX - this.resizeColumn.pageX;
+                this.resizeColumn.curCol.style.width =
+                    this.resizeColumn.curColWidth + diffX + "px";
+                if (
+                    this.resizeColumn.tableWidth >
+                    this.resizeColumn.tableWidth + diffX
+                ) {
+                    document.getElementsByTagName("table")[0].style.width =
+                        this.resizeColumn.tableWidth + "px";
+                } else {
+                    document.getElementsByTagName("table")[0].style.width =
+                        this.resizeColumn.tableWidth + diffX + "px";
                 }
-            });
-
-            document.addEventListener("mouseup", function (e) {
-                curCol = undefined;
-                nxtCol = undefined;
-                pageX = undefined;
-                nxtColWidth = undefined;
-                curColWidth = undefined;
-            });
+            }
+        },
+        handleMouseUpResize() {
+            this.resizeColumn.curCol = undefined;
+            this.resizeColumn.pageX = undefined;
+            this.resizeColumn.curColWidth = undefined;
         },
 
-        createDiv(height) {
-            let div = document.createElement("div");
-            div.style.top = 0;
-            div.style.right = 0;
-            div.style.width = "5px";
-            div.style.position = "absolute";
-            div.style.cursor = "col-resize";
-            div.style.userSelect = "none";
-            div.style.height = height + "px";
-            return div;
-        },
+        async handleSortDepartment({ sortBy, sortDesc, ...item }) {
+            let querySortObject = {
+                page_size: item.itemsPerPage,
+                page: item.page,
+                sort: "name",
+                project: this.id,
+                state: "ACTIVE",
+            };
 
-        paddingDiff(col) {
-            if (this.getStyleVal(col, "box-sizing") == "border-box") {
-                return 0;
+            if (sortBy.length > 0) {
+                querySortObject.sort =
+                    sortBy[0] === "department_type"
+                        ? sortDesc[0] === true
+                            ? "-department_type__option_name"
+                            : "department_type__option_name"
+                        : `${sortDesc[0] === true ? "-" : ""}${sortBy[0]}`;
             }
 
-            let padLeft = this.getStyleVal(col, "padding-left");
-            let padRight = this.getStyleVal(col, "padding-right");
-            return parseInt(padLeft) + parseInt(padRight);
-        },
-
-        getStyleVal(elm, css) {
-            return window.getComputedStyle(elm, null).getPropertyValue(css);
+            const querySortString =
+                "?" + new URLSearchParams(querySortObject).toString();
+            await this.fetchSortDepartment({ querySortString });
+            if (this.pagination) {
+                this.$router.push({
+                    query: {
+                        pageSize: this.itemsPerPage,
+                        page: this.selectedPage,
+                        sort:
+                            querySortObject.sort.charAt(0) === "-"
+                                ? querySortObject.sort.slice(1)
+                                : querySortObject.sort,
+                        desc: sortDesc.length > 0 ? sortDesc[0].toString() : "",
+                    },
+                });
+            } else {
+                this.pagination = true;
+            }
         },
     },
     async created() {
         this.setProjectId(this.id);
+
         let query = this.$route.query;
-        if (query) {
-            this.pagination.page = +query.page || 1;
-            this.pagination.itemsPerPage = +query.pageSize || 10;
+        if (Object.keys(query).length > 0) {
+            this.selectedPage = +query.page;
+            this.itemsPerPage = +query.pageSize;
         }
         await this.fetchDepTypes({ pageSize: 5000, projectId: this.id });
-
         await this.fetchDepColumns(this.id);
         await this.fetchDepartments({
-            pageSize: this.$route.query.pageSize || 10,
-            page: this.$route.query.page || 1,
+            pageSize: +this.$route.query.pageSize || 10,
+            page: +this.$route.query.page || 1,
             sort: "name",
             projectId: this.id,
             state: "ACTIVE",
         });
 
         this.headers = this.depColumns.map((item) => ({
-            text: item,
+            text: allDepColumns[item],
+            key: item,
             align: "start",
             sortable: true,
             value: item,
             divider: true,
+            editable: item === "ref_id" || item === "department_type",
         }));
         this.setDesserts();
     },
@@ -299,11 +266,8 @@ export default {
     mounted() {
         const tableWrapper = document.querySelector(".v-data-table__wrapper");
         tableWrapper.addEventListener("scroll", this.handleWrapperScroll);
-    },
-    updated() {
-        const table = document.getElementsByTagName("table");
-        console.log(table[0]);
-        this.resizableGrid(table[0]);
+        document.addEventListener("mousemove", this.handleMouseMoveResize);
+        document.addEventListener("mouseup", this.handleMouseUpResize);
     },
 };
 </script>
@@ -378,18 +342,31 @@ export default {
                     :items="desserts"
                     :single-select="singleSelect"
                     :page.sync="selectedPage"
-                    :server-items-length="metaDepartment.total_results"
-                    @pagination="handlePagination"
                     :items-per-page="itemsPerPage"
+                    :server-items-length="metaDepartment.total_results"
+                    :options="{
+                        page: this.selectedPage,
+                        itemsPerPage: this.itemsPerPage,
+                    }"
+                    @pagination="handlePagination"
+                    @update:options="handleSortDepartment"
                 >
-                    <template v-slot:[`header.ref_id`]="{ header }">
-                        <span>{{ header.text }} </span>
-                        <v-icon small>mdi-pencil</v-icon>
-                    </template>
-
-                    <template v-slot:[`header.department_type`]="{ header }">
-                        <span>{{ header.text }} </span>
-                        <v-icon small>mdi-pencil</v-icon>
+                    <template
+                        v-for="header in headers"
+                        v-slot:[`header.${header.key}`]
+                    >
+                        <span :key="header.key">{{ header.text }} </span>
+                        <v-icon
+                            small
+                            :key="header.key + `icon`"
+                            v-if="header.editable"
+                            >mdi-pencil</v-icon
+                        >
+                        <div
+                            :key="header.key + `div`"
+                            class="resize-column"
+                            @mousedown="handleMouseDownResize"
+                        ></div>
                     </template>
 
                     <template v-slot:[`item.ref_id`]="{ item, header }">
@@ -446,6 +423,7 @@ export default {
                             <template v-slot:input>
                                 <v-combobox
                                     v-model="item[header.value]"
+                                    y
                                     :items="depTypes"
                                     item-text="name"
                                     item-value="id"
@@ -560,5 +538,19 @@ tbody tr:hover {
 
 .v-data-table__wrapper {
     max-height: 60vh;
+}
+
+.resize-column {
+    width: 20px;
+    height: 48px;
+    position: absolute;
+    right: 0px;
+    top: 0px;
+
+    cursor: col-resize;
+}
+
+.resize-column:hover {
+    border-right: 2px solid blue;
 }
 </style>
