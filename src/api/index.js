@@ -78,6 +78,13 @@ const api = {
         }
         return res.data;
     },
+
+    async updateSetting(ownerId, updateSetting) {
+        await axios.put(
+            `/api/org-members/${ownerId}/preferences/departmentsColumns/`,
+            updateSetting
+        );
+    },
 };
 
 export default api;

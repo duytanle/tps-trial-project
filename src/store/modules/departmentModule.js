@@ -14,6 +14,8 @@ const department = {
         currentActiveIndex: null,
         tableSettings: [],
         rawTableSettings: null,
+        ownerId: "",
+        loading: false,
     },
     getters: {
         getDepChosen: (state) => {
@@ -74,6 +76,14 @@ const department = {
         getRawTableSettings: (state) => {
             return state.rawTableSettings;
         },
+
+        getOwnerId: (state) => {
+            return state.ownerId;
+        },
+
+        getLoading: (state) => {
+            return state.loading;
+        },
     },
     mutations: {
         setDepChosen: (state, payload) => {
@@ -123,6 +133,13 @@ const department = {
         setRawTableSettings: (state, payload) => {
             state.rawTableSettings = payload;
         },
+
+        setOwnerId: (state, payload) => {
+            state.ownerId = payload;
+        },
+        setLoading: (state, payload) => {
+            state.loading = payload;
+        },
     },
     actions: {
         async fetchDepTypes({ commit }, { pageSize, projectId }) {
@@ -138,13 +155,16 @@ const department = {
 
         async fetchDepColumns({ commit }, projectId) {
             const resOwnerId = await api.getFieldsName(projectId);
+            commit("setOwnerId", resOwnerId.owner_id);
             const res = await api.getDepartmentsColumns(resOwnerId.owner_id);
             const indexSettings = res.value.active_idx;
 
             commit("setRawTableSettings", res.value);
             let preTableSettings = [];
-            preTableSettings.push(res.value.default_columns);
-            preTableSettings.push(...res.value.table_settings);
+            preTableSettings.push(structuredClone(res.value.default_columns));
+            res.value.table_settings.forEach((item) => {
+                preTableSettings.push(structuredClone(item));
+            });
 
             let tableSettings = preTableSettings.map((item, index) => {
                 delete item.column_sizes;
@@ -160,6 +180,7 @@ const department = {
                 }
                 return item;
             });
+
             commit("setTableSettings", tableSettings);
             commit("setActiveIndex", indexSettings + 1);
             commit("setCurrentActiveIndex", indexSettings + 1);
@@ -197,6 +218,11 @@ const department = {
             const res = await api.sortDepartment(querySortString, signal);
             commit("setMetaDepartment", res.meta);
             commit("setDepartments", res.results);
+        },
+
+        async fetchRawTableSettings({ commit, state }) {
+            const res = await api.getDepartmentsColumns(state.ownerId);
+            commit("setRawTableSettings", res.value);
         },
     },
 };

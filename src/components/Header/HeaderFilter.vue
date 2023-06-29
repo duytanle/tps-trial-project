@@ -10,6 +10,7 @@ import draggable from "vuedraggable";
 import allDepColumns from "../../utils/allDepColums";
 import DialogCloseSetting from "../Content/DialogCloseSetting.vue";
 import isEqual from "lodash/isEqual";
+import api from "../../api/index";
 export default {
     components: {
         BottomSheetCustom,
@@ -57,6 +58,8 @@ export default {
             activeIndexSetting: "getActiveIndex",
             currentActiveIndex: "getCurrentActiveIndex",
             rawTableSettings: "getRawTableSettings",
+            ownerId: "getOwnerId",
+            loading: "getLoading",
         }),
         depTypesName() {
             return this.depTypes.map((item) => item.text);
@@ -66,10 +69,12 @@ export default {
                 return { id: item, name: value };
             });
         },
+        listSettingNames: {},
     },
 
     watch: {
         async depChosen(newValue) {
+            this.setLoading(true);
             const { pageSize, sortBy } = this.$route.query;
             if (newValue) {
                 await this.fetchDepartments({
@@ -89,6 +94,7 @@ export default {
                     state: "ACTIVE",
                 });
             }
+            this.setLoading(false);
         },
 
         "settingData.isAllColumn"() {
@@ -126,7 +132,6 @@ export default {
                     checkObject,
                     this.settingActive
                 );
-                console.log(this.rawTableSettings);
             },
             deep: true,
         },
@@ -139,8 +144,14 @@ export default {
             "fetchDetailDepartment",
             "fetchDepartments",
             "fetchSortDepartment",
+            "fetchDepColumns",
+            "fetchRawTableSettings",
         ]),
-        ...mapMutations(["setCurrentActiveIndex"]),
+        ...mapMutations([
+            "setCurrentActiveIndex",
+            "setTableSettings",
+            "setLoading",
+        ]),
         async handleEditDepartment() {
             this.loading = true;
             await this.fetchDetailDepartment(this.infoEditDep.id);
@@ -247,8 +258,101 @@ export default {
             this.setSettingChosen();
         },
 
-        handleUpdateSettings() {
-            console.log(this.rawTableSettings);
+        async handleUpdateSettings() {
+            this.checkChangeSetting = false;
+            let cloneRawTableSettings = structuredClone(this.rawTableSettings);
+
+            cloneRawTableSettings.table_settings[this.currentActiveIndex - 1] =
+                {
+                    ...cloneRawTableSettings.table_settings[
+                        this.currentActiveIndex - 1
+                    ],
+                    columns: this.settingChosen.columns.map(
+                        (column) => column.id
+                    ),
+                    show_inactive_state:
+                        this.settingChosen.depState.includes("INACTIVE"),
+                    show_redacted_state:
+                        this.settingChosen.depState.includes("REDACTED"),
+                    fixed_number: this.settingChosen.fixed_number,
+                };
+            if (typeof this.settingChosen.name === "string") {
+                cloneRawTableSettings.table_settings[
+                    this.currentActiveIndex - 1
+                ].name = this.settingChosen.name;
+            }
+            await api.updateSetting(this.ownerId, {
+                value: cloneRawTableSettings,
+            });
+            await this.fetchRawTableSettings(this.projectId);
+        },
+
+        async handleSaveAndApply(closeDialog) {
+            closeDialog();
+            let cloneRawTableSettings = structuredClone(this.rawTableSettings);
+
+            cloneRawTableSettings.active_idx = this.currentActiveIndex - 1;
+            await api.updateSetting(this.ownerId, {
+                value: cloneRawTableSettings,
+            });
+
+            let query = this.$route.query;
+            await this.fetchDepColumns(this.projectId);
+            await this.fetchDepartments({
+                pageSize: +query.pageSize || 10,
+                page: +query.page || 1,
+                sort: "name",
+                projectId: this.projectId,
+                state: "ACTIVE",
+            });
+        },
+        async handleCreateNewSetting(activeIndex = -1) {
+            let lengthSettings = this.settings.length;
+
+            let newSetting = {
+                columns: this.settingChosen.columns.map((item) => item.id),
+                fixed_number: this.settingChosen.fixed_number,
+
+                show_inactive_state:
+                    this.settingChosen.depState.includes("INACTIVE"),
+                show_redacted_state:
+                    this.settingChosen.depState.includes("REDACTED"),
+            };
+
+            if (this.settingChosen.name) {
+                newSetting.name = this.settingChosen.name;
+                this.setTableSettings([...this.settings, newSetting]);
+            } else {
+                this.setTableSettings([
+                    ...this.settings,
+                    { ...newSetting, name: `Custom ${lengthSettings}` },
+                ]);
+            }
+            this.setCurrentActiveIndex(
+                activeIndex > -1 ? activeIndex : lengthSettings
+            );
+
+            let cloneRawTableSettings = structuredClone(this.rawTableSettings);
+            let lengthRawTableSetting =
+                cloneRawTableSettings.table_settings.length;
+            cloneRawTableSettings.table_settings[lengthRawTableSetting] =
+                newSetting;
+            this.addNewSetting = false;
+
+            await api.updateSetting(this.ownerId, {
+                value: cloneRawTableSettings,
+            });
+            await this.fetchRawTableSettings(this.projectId);
+        },
+
+        async handleCreateAndApply(closeDialog) {
+            await this.handleCreateNewSetting();
+            await this.handleSaveAndApply(closeDialog);
+        },
+
+        async handleSaveAsNew(closeDialog) {
+            await this.handleCreateNewSetting(this.activeIndexSetting);
+            closeDialog();
         },
     },
 };
@@ -443,6 +547,7 @@ export default {
                                                 label="Setting Name"
                                                 hide-details
                                                 class="pt-0"
+                                                v-model="settingChosen.name"
                                             ></v-text-field>
                                             <v-combobox
                                                 v-else
@@ -716,6 +821,7 @@ export default {
                                     color="primary"
                                     class="text-capitalize"
                                     :style="{ width: '100%' }"
+                                    @click="handleCreateNewSetting"
                                 >
                                     Create
                                 </v-btn>
@@ -727,6 +833,11 @@ export default {
                                     :disabled="!changeNameSettings"
                                     class="text-capitalize"
                                     :style="{ width: '100%' }"
+                                    @click="
+                                        () => {
+                                            handleSaveAsNew(closeDialog);
+                                        }
+                                    "
                                 >
                                     Save As New
                                 </v-btn>
@@ -756,7 +867,11 @@ export default {
                                     color="primary"
                                     class="text-capitalize"
                                     :style="{ width: '100%' }"
-                                    @click="() => closeDialog()"
+                                    @click="
+                                        () => {
+                                            handleSaveAndApply(closeDialog);
+                                        }
+                                    "
                                 >
                                     Save and Apply
                                 </v-btn>
@@ -767,7 +882,11 @@ export default {
                                     color="primary"
                                     class="text-capitalize"
                                     :style="{ width: '100%' }"
-                                    @click="() => closeDialog()"
+                                    @click="
+                                        () => {
+                                            handleCreateAndApply(closeDialog);
+                                        }
+                                    "
                                 >
                                     Create and Apply
                                 </v-btn>
