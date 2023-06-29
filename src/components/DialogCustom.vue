@@ -8,13 +8,30 @@ export default {
         isConfirm: { type: Boolean, default: false },
         dialogName: { type: String },
         cssLink: { type: String },
+        isClose: { type: Object },
     },
     data() {
         return {
             dialog: false,
         };
     },
-    methods: {},
+
+    watch: {
+        isClose(newValue) {
+            if (newValue.id === "RC") {
+                const button = document.querySelector(
+                    ".close-dialog__Settings"
+                );
+                button.click();
+            }
+        },
+    },
+    methods: {
+        handleCloseDialog(dialog) {
+            dialog.value = false;
+            this.$emit("update:closeDialog");
+        },
+    },
 };
 </script>
 <template>
@@ -48,7 +65,15 @@ export default {
                                 >
                             </template>
                         </dialog-confirm>
-                        <v-btn v-else icon @click="dialog.value = false"
+                        <v-btn
+                            v-else
+                            :class="'close-dialog__' + dialogName"
+                            icon
+                            @click="
+                                () => {
+                                    handleCloseDialog(dialog);
+                                }
+                            "
                             ><v-icon>mdi-close</v-icon></v-btn
                         >
                     </div>

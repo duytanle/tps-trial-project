@@ -1,13 +1,15 @@
 <script>
 import BottomSheetCustom from "../BottomSheetCustom.vue";
 import SearchComponent from "../SearchComponent.vue";
-import { mapActions, mapGetters } from "vuex";
+import { mapActions, mapGetters, mapMutations } from "vuex";
 import ButtonCustom from "../ButtonCustom.vue";
 import DialogCreateEdit from "../DialogCreateEdit.vue";
 import DialogCustom from "../DialogCustom.vue";
 import MenuCustom from "../MenuCustom.vue";
 import draggable from "vuedraggable";
 import allDepColumns from "../../utils/allDepColums";
+import DialogCloseSetting from "../Content/DialogCloseSetting.vue";
+import isEqual from "lodash/isEqual";
 export default {
     components: {
         BottomSheetCustom,
@@ -16,6 +18,7 @@ export default {
         DialogCreateEdit,
         DialogCustom,
         MenuCustom,
+        DialogCloseSetting,
         draggable,
     },
     data() {
@@ -23,22 +26,21 @@ export default {
             depChosen: null,
             loading: false,
             controller: null,
+            checkChangeSetting: false,
             settingData: {
-                settingName: [
-                    { id: 0, name: "Default" },
-                    { id: 1, name: "Custom 1" },
-                    { id: 3, name: "Custom 2" },
-                ],
                 settingFreezeColumn: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                isAllColumn: null,
             },
-            columnChecked: [],
-            isAllColumn: [],
             settingChosen: {
-                settingName: ["Default"],
-                settingFreezeColumn: [2],
+                columns: [],
+                fixed_number: 2,
+                name: { id: 0, name: "Default" },
+                depState: [],
             },
-
             drag: false,
+            closeSetting: { id: "" },
+            addNewSetting: false,
+            changeNameSettings: false,
         };
     },
     computed: {
@@ -48,6 +50,13 @@ export default {
             detailDep: "getDetailDepartment",
             infoEditDep: "getInfoEditDep",
             projectId: "getProjectId",
+            settingDefault: "getTableSettingDefault",
+            settingActive: "getTableSettingActive",
+            settings: "getTableSettings",
+            settingNames: "getSettingNames",
+            activeIndexSetting: "getActiveIndex",
+            currentActiveIndex: "getCurrentActiveIndex",
+            rawTableSettings: "getRawTableSettings",
         }),
         depTypesName() {
             return this.depTypes.map((item) => item.text);
@@ -81,12 +90,48 @@ export default {
                 });
             }
         },
-        myArray(newValue) {
-            console.log(newValue);
+
+        "settingData.isAllColumn"() {
+            this.settingChosen.columns =
+                this.settingData.isAllColumn === "all"
+                    ? this.columnArray
+                    : this.settingData.isAllColumn === "notall"
+                    ? this.settingChosen.columns
+                    : [];
         },
-        isAllColumn() {
-            this.columnChecked =
-                this.isAllColumn.length > 0 ? this.columnArray : [];
+        "settingChosen.columns"(newValue) {
+            this.settingData.isAllColumn =
+                newValue?.length === this.columnArray.length
+                    ? "all"
+                    : newValue?.length === 0
+                    ? null
+                    : "notall";
+        },
+        settingChosen: {
+            handler: function (newValue) {
+                let checkObject = structuredClone(newValue);
+                checkObject.name = checkObject.name.name;
+                checkObject.show_inactive_state =
+                    checkObject.depState.includes("INACTIVE");
+
+                checkObject.show_redacted_state =
+                    checkObject.depState.includes("REDACTED");
+
+                delete checkObject.depState;
+
+                checkObject.columns = checkObject.columns.map(
+                    (item) => item.id
+                );
+                this.checkChangeSetting = !isEqual(
+                    checkObject,
+                    this.settingActive
+                );
+                console.log(this.rawTableSettings);
+            },
+            deep: true,
+        },
+        settings() {
+            this.setSettingChosen();
         },
     },
     methods: {
@@ -95,6 +140,7 @@ export default {
             "fetchDepartments",
             "fetchSortDepartment",
         ]),
+        ...mapMutations(["setCurrentActiveIndex"]),
         async handleEditDepartment() {
             this.loading = true;
             await this.fetchDetailDepartment(this.infoEditDep.id);
@@ -151,6 +197,58 @@ export default {
             });
 
             await this.fetchSortDepartment({ querySortString, signal });
+        },
+        handleUpdateCloseDialog() {
+            this.addNewSetting = false;
+            this.setCurrentActiveIndex(this.activeIndexSetting);
+            this.setSettingChosen();
+        },
+        handleChange(data) {
+            this.changeNameSettings = typeof data === "string";
+            if (!this.changeNameSettings) {
+                this.setCurrentActiveIndex(data.id);
+                this.setSettingChosen();
+            }
+        },
+        setSettingChosen() {
+            const newAllDepColumn = Object.assign(allDepColumns);
+            this.settingChosen.name =
+                this.settingNames[this.currentActiveIndex];
+            if (this.settingActive.show_inactive_state) {
+                this.settingChosen.depState.push("INACTIVE");
+            }
+            if (this.settingActive.show_redacted_state) {
+                this.settingChosen.depState.push("REDACTED");
+            }
+            this.settingChosen.fixed_number = this.settingActive.fixed_number;
+            this.settingChosen.columns = this.settingActive.columns.map(
+                (item) => {
+                    return { id: item, name: newAllDepColumn[item] };
+                }
+            );
+        },
+        handleAddNewSetting() {
+            this.settingChosen.name = "";
+            this.settingChosen.depState = [];
+            this.settingChosen.columns = this.settingDefault.columns.map(
+                (item) => {
+                    return {
+                        id: item,
+                        name: Object.assign(allDepColumns)[item],
+                    };
+                }
+            );
+            this.settingChosen.fixed_number = 2;
+            this.addNewSetting = true;
+        },
+        handleCancelAddNewSetting() {
+            this.addNewSetting = false;
+            this.setCurrentActiveIndex(this.activeIndexSetting);
+            this.setSettingChosen();
+        },
+
+        handleUpdateSettings() {
+            console.log(this.rawTableSettings);
         },
     },
 };
@@ -307,7 +405,12 @@ export default {
                     textTooltip="Settings"
                 >
                 </button-custom>
-                <dialog-custom dialogName="Settings" cssLink="settings-dialog">
+                <dialog-custom
+                    dialogName="Settings"
+                    cssLink="settings-dialog"
+                    @update:closeDialog="handleUpdateCloseDialog"
+                    :isClose="closeSetting"
+                >
                     <template v-slot:dialogContent>
                         <div
                             class="settings__content py-4"
@@ -321,24 +424,37 @@ export default {
                                 <div
                                     class="font-weight-bold"
                                     style="font-size: 1.7rem"
+                                    v-if="addNewSetting"
+                                >
+                                    Create New Setting
+                                </div>
+                                <div
+                                    class="font-weight-bold"
+                                    style="font-size: 1.7rem"
+                                    v-else
                                 >
                                     Setting
                                 </div>
                                 <v-container fluid>
                                     <v-row class="py-4">
                                         <v-col cols="8" class="pa-0">
+                                            <v-text-field
+                                                v-if="addNewSetting"
+                                                label="Setting Name"
+                                                hide-details
+                                                class="pt-0"
+                                            ></v-text-field>
                                             <v-combobox
-                                                v-model="
-                                                    settingChosen.settingName
-                                                "
-                                                :items="settingData.settingName"
+                                                v-else
+                                                v-model="settingChosen.name"
+                                                :items="settingNames"
                                                 item-text="name"
                                                 item-value="id"
                                                 label="Setting Names"
                                                 color="primary"
                                                 class="pa-0"
-                                                clearable
                                                 return-object
+                                                @change="handleChange"
                                             >
                                                 <template
                                                     v-slot:item="{ item }"
@@ -349,12 +465,32 @@ export default {
                                                         <p class="mb-0">
                                                             {{ item.name }}
                                                         </p>
-                                                        <v-btn
-                                                            text
-                                                            color="red"
-                                                            class="text-capitalize ml-auto"
-                                                            >Remove</v-btn
+                                                        <dialog-close-setting
+                                                            @update:close="
+                                                                ($event) =>
+                                                                    (closeSetting =
+                                                                        $event)
+                                                            "
                                                         >
+                                                            <template
+                                                                v-slot:openConfirmDialog="{
+                                                                    activator,
+                                                                }"
+                                                            >
+                                                                <v-btn
+                                                                    text
+                                                                    color="red"
+                                                                    class="text-capitalize ml-auto"
+                                                                    v-bind="
+                                                                        activator.attrs
+                                                                    "
+                                                                    v-on="
+                                                                        activator.on
+                                                                    "
+                                                                    >Remove</v-btn
+                                                                >
+                                                            </template>
+                                                        </dialog-close-setting>
                                                     </div>
                                                 </template>
                                             </v-combobox>
@@ -364,6 +500,20 @@ export default {
                                                 class="col-4 text-capitalize"
                                                 color="primary"
                                                 min-width="100%"
+                                                outlined
+                                                v-if="addNewSetting"
+                                                @click="
+                                                    handleCancelAddNewSetting
+                                                "
+                                            >
+                                                Cancel
+                                            </v-btn>
+                                            <v-btn
+                                                class="col-4 text-capitalize"
+                                                color="primary"
+                                                min-width="100%"
+                                                v-else
+                                                @click="handleAddNewSetting"
                                             >
                                                 <v-icon>mdi-plus</v-icon>
                                                 Add New
@@ -383,19 +533,22 @@ export default {
                                     <v-checkbox
                                         label="Show Redacted Departments"
                                         hide-details
+                                        v-model="settingChosen.depState"
+                                        value="REDACTED"
                                     ></v-checkbox>
                                     <v-checkbox
                                         label="Show Inactive Departments"
                                         hide-details
+                                        v-model="settingChosen.depState"
+                                        value="INACTIVE"
                                     ></v-checkbox>
                                 </div>
                                 <v-combobox
-                                    v-model="settingChosen.settingFreezeColumn"
+                                    v-model="settingChosen.fixed_number"
                                     :items="settingData.settingFreezeColumn"
                                     label="Freeze Lefthand column"
                                     color="primary"
                                     class="pa-0 col col-8 mt-8"
-                                    clearable
                                 >
                                 </v-combobox>
                             </div>
@@ -451,13 +604,20 @@ export default {
                                                     class="mr-3"
                                                 >
                                                     <v-checkbox
-                                                        v-model="isAllColumn"
+                                                        v-model="
+                                                            settingData.isAllColumn
+                                                        "
                                                         hide-details
-                                                        class="mt-0"
+                                                        class="mt-0 checkbox"
                                                         value="all"
                                                         :indeterminate="
-                                                            columnChecked.length <
-                                                            columnArray.length
+                                                            settingChosen
+                                                                .columns
+                                                                .length > 0 &&
+                                                            settingChosen
+                                                                .columns
+                                                                .length <
+                                                                columnArray.length
                                                         "
                                                         color="primary"
                                                     >
@@ -476,7 +636,9 @@ export default {
                                                     class="mr-3"
                                                 >
                                                     <v-checkbox
-                                                        v-model="columnChecked"
+                                                        v-model="
+                                                            settingChosen.columns
+                                                        "
                                                         :value="column"
                                                         hide-details
                                                         class="mt-0"
@@ -517,13 +679,13 @@ export default {
                                             style="cursor: move"
                                         >
                                             <draggable
-                                                v-model="columnChecked"
+                                                v-model="settingChosen.columns"
                                                 group="people"
                                                 @start="drag = true"
                                                 @end="drag = false"
                                             >
                                                 <div
-                                                    v-for="element in columnChecked"
+                                                    v-for="element in settingChosen.columns"
                                                     :key="element.id"
                                                     class="row align-center"
                                                 >
@@ -545,18 +707,50 @@ export default {
                     </template>
                     <template #dialogAction="{ closeDialog }">
                         <div class="py-2 d-flex">
-                            <div class="pr-2 pl-0 py-0 col col-6">
+                            <div
+                                class="pr-2 pl-0 py-0 col col-6"
+                                v-if="addNewSetting"
+                            >
                                 <v-btn
                                     outlined
                                     color="primary"
                                     class="text-capitalize"
                                     :style="{ width: '100%' }"
-                                    @click="() => clearFilter()"
                                 >
-                                    Clear Filter
+                                    Create
                                 </v-btn>
                             </div>
-                            <div class="pl-2 pr-0 py-0 col col-6">
+                            <div class="pr-2 pl-0 py-0 col col-6" v-else>
+                                <v-btn
+                                    outlined
+                                    color="primary"
+                                    :disabled="!changeNameSettings"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                >
+                                    Save As New
+                                </v-btn>
+                            </div>
+                            <div
+                                class="pl-2 pr-0 py-0 col col-6"
+                                v-if="checkChangeSetting && !addNewSetting"
+                            >
+                                <v-btn
+                                    depressed
+                                    color="primary"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                    @click="handleUpdateSettings"
+                                >
+                                    Update Settings
+                                </v-btn>
+                            </div>
+                            <div
+                                class="pl-2 pr-0 py-0 col col-6"
+                                v-else-if="
+                                    !checkChangeSetting && !addNewSetting
+                                "
+                            >
                                 <v-btn
                                     depressed
                                     color="primary"
@@ -564,7 +758,18 @@ export default {
                                     :style="{ width: '100%' }"
                                     @click="() => closeDialog()"
                                 >
-                                    Done
+                                    Save and Apply
+                                </v-btn>
+                            </div>
+                            <div class="pl-2 pr-0 py-0 col col-6" v-else>
+                                <v-btn
+                                    depressed
+                                    color="primary"
+                                    class="text-capitalize"
+                                    :style="{ width: '100%' }"
+                                    @click="() => closeDialog()"
+                                >
+                                    Create and Apply
                                 </v-btn>
                             </div>
                         </div>
@@ -637,9 +842,12 @@ export default {
     </div>
 </template>
 
-<style scoped>
+<style>
 .dep__title {
     font-size: 20px;
     font-weight: bold;
+}
+.v-input--indeterminate i {
+    color: #1976d2 !important;
 }
 </style>

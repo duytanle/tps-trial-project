@@ -10,6 +10,10 @@ const department = {
         metaDepartment: {},
         pagination: {},
         projectId: null,
+        activeIndex: null,
+        currentActiveIndex: null,
+        tableSettings: [],
+        rawTableSettings: null,
     },
     getters: {
         getDepChosen: (state) => {
@@ -40,6 +44,35 @@ const department = {
 
         getProjectId: (state) => {
             return state.projectId;
+        },
+
+        getActiveIndex: (state) => {
+            return state.activeIndex;
+        },
+
+        getCurrentActiveIndex: (state) => {
+            return state.currentActiveIndex;
+        },
+        getTableSettings: (state) => {
+            return state.tableSettings;
+        },
+
+        getTableSettingActive: (state, getters) => {
+            return state.tableSettings[getters.getCurrentActiveIndex];
+        },
+
+        getTableSettingDefault: (state) => {
+            return state.tableSettings[0];
+        },
+
+        getSettingNames: (state) => {
+            return state.tableSettings.map((item, index) => {
+                return { id: index, name: item.name };
+            });
+        },
+
+        getRawTableSettings: (state) => {
+            return state.rawTableSettings;
         },
     },
     mutations: {
@@ -74,6 +107,22 @@ const department = {
         setProjectId: (state, payload) => {
             state.projectId = payload;
         },
+
+        setActiveIndex: (state, payload) => {
+            state.activeIndex = payload;
+        },
+
+        setCurrentActiveIndex: (state, payload) => {
+            state.currentActiveIndex = payload;
+        },
+
+        setTableSettings: (state, payload) => {
+            state.tableSettings = payload;
+        },
+
+        setRawTableSettings: (state, payload) => {
+            state.rawTableSettings = payload;
+        },
     },
     actions: {
         async fetchDepTypes({ commit }, { pageSize, projectId }) {
@@ -92,6 +141,28 @@ const department = {
             const res = await api.getDepartmentsColumns(resOwnerId.owner_id);
             const indexSettings = res.value.active_idx;
 
+            commit("setRawTableSettings", res.value);
+            let preTableSettings = [];
+            preTableSettings.push(res.value.default_columns);
+            preTableSettings.push(...res.value.table_settings);
+
+            let tableSettings = preTableSettings.map((item, index) => {
+                delete item.column_sizes;
+                delete item.is_in_use;
+                if (index === 0) {
+                    item.name = "Default";
+                    item.show_inactive_state = false;
+                    item.show_redacted_state = false;
+                    item.fixed_number = 2;
+                }
+                if (!Object.prototype.hasOwnProperty.call(item, "name")) {
+                    item.name = `Custom ${index}`;
+                }
+                return item;
+            });
+            commit("setTableSettings", tableSettings);
+            commit("setActiveIndex", indexSettings + 1);
+            commit("setCurrentActiveIndex", indexSettings + 1);
             if (indexSettings === -1) {
                 commit("setDepColumns", res.value.default_columns.columns);
                 commit(
