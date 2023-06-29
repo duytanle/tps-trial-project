@@ -33,6 +33,7 @@ export default {
             departments: "getDepartments",
             metaDepartment: "getMetaDepartment",
             listEditNumber: "getListEditNumber",
+            loading: "getLoading",
         }),
     },
     watch: {
@@ -58,8 +59,19 @@ export default {
         selectedDep: function () {
             this.setListEditDep(this.selectedDep);
         },
-        departments: function () {
+        departments() {
             this.setDesserts();
+        },
+        depColumns(newValue) {
+            this.headers = newValue.map((item) => ({
+                text: allDepColumns[item],
+                key: item,
+                align: "start",
+                sortable: true,
+                value: item,
+                divider: true,
+                editable: item === "ref_id" || item === "department_type",
+            }));
         },
     },
 
@@ -70,8 +82,8 @@ export default {
             "fetchDepTypes",
             "fetchSortDepartment",
         ]),
-        ...mapMutations(["setListEditDep", "setProjectId"]),
-        handlePagination(pagination) {
+        ...mapMutations(["setListEditDep", "setProjectId", "setLoading"]),
+        handlePagination() {
             // if (
             //     this.pagination.itemsPerPage !== pagination.itemsPerPage ||
             //     this.pagination.page !== pagination.page
@@ -98,8 +110,8 @@ export default {
         setDesserts() {
             this.desserts = this.departments.map((department) => {
                 let tempDesserts = {
-                    id: department.id,
-                    department_type_id: department.department_type.id,
+                    id: department?.id,
+                    department_type_id: department?.department_type?.id,
                 };
 
                 for (const depColumn of this.depColumns) {
@@ -196,6 +208,7 @@ export default {
         },
 
         async handleSortDepartment({ sortBy, sortDesc, ...item }) {
+            this.setLoading(true);
             let querySortObject = {
                 page_size: item.itemsPerPage,
                 page: item.page,
@@ -231,6 +244,7 @@ export default {
             } else {
                 this.pagination = true;
             }
+            this.setLoading(false);
         },
     },
     async created() {
@@ -251,16 +265,16 @@ export default {
             state: "ACTIVE",
         });
 
-        this.headers = this.depColumns.map((item) => ({
-            text: allDepColumns[item],
-            key: item,
-            align: "start",
-            sortable: true,
-            value: item,
-            divider: true,
-            editable: item === "ref_id" || item === "department_type",
-        }));
-        this.setDesserts();
+        // this.headers = this.depColumns.map((item) => ({
+        //     text: allDepColumns[item],
+        //     key: item,
+        //     align: "start",
+        //     sortable: true,
+        //     value: item,
+        //     divider: true,
+        //     editable: item === "ref_id" || item === "department_type",
+        // }));
+        // this.setDesserts();
     },
 
     mounted() {
@@ -350,6 +364,7 @@ export default {
                     }"
                     @pagination="handlePagination"
                     @update:options="handleSortDepartment"
+                    :loading="true"
                 >
                     <template
                         v-for="header in headers"
@@ -449,11 +464,11 @@ export default {
                     <template v-slot:[`item.state`]="{ item }">
                         <v-chip color="green" dark small>
                             {{
-                                item.state
-                                    .toLowerCase()
+                                item?.state
+                                    ?.toLowerCase()
                                     .charAt(0)
                                     .toUpperCase() +
-                                item.state.toLowerCase().slice(1)
+                                item?.state?.toLowerCase().slice(1)
                             }}
                         </v-chip>
                     </template>

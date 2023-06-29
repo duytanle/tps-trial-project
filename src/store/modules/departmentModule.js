@@ -10,6 +10,12 @@ const department = {
         metaDepartment: {},
         pagination: {},
         projectId: null,
+        activeIndex: null,
+        currentActiveIndex: null,
+        tableSettings: [],
+        rawTableSettings: null,
+        ownerId: "",
+        loading: false,
     },
     getters: {
         getDepChosen: (state) => {
@@ -40,6 +46,43 @@ const department = {
 
         getProjectId: (state) => {
             return state.projectId;
+        },
+
+        getActiveIndex: (state) => {
+            return state.activeIndex;
+        },
+
+        getCurrentActiveIndex: (state) => {
+            return state.currentActiveIndex;
+        },
+        getTableSettings: (state) => {
+            return state.tableSettings;
+        },
+
+        getTableSettingActive: (state, getters) => {
+            return state.tableSettings[getters.getCurrentActiveIndex];
+        },
+
+        getTableSettingDefault: (state) => {
+            return state.tableSettings[0];
+        },
+
+        getSettingNames: (state) => {
+            return state.tableSettings.map((item, index) => {
+                return { id: index, name: item.name };
+            });
+        },
+
+        getRawTableSettings: (state) => {
+            return state.rawTableSettings;
+        },
+
+        getOwnerId: (state) => {
+            return state.ownerId;
+        },
+
+        getLoading: (state) => {
+            return state.loading;
         },
     },
     mutations: {
@@ -74,6 +117,29 @@ const department = {
         setProjectId: (state, payload) => {
             state.projectId = payload;
         },
+
+        setActiveIndex: (state, payload) => {
+            state.activeIndex = payload;
+        },
+
+        setCurrentActiveIndex: (state, payload) => {
+            state.currentActiveIndex = payload;
+        },
+
+        setTableSettings: (state, payload) => {
+            state.tableSettings = payload;
+        },
+
+        setRawTableSettings: (state, payload) => {
+            state.rawTableSettings = payload;
+        },
+
+        setOwnerId: (state, payload) => {
+            state.ownerId = payload;
+        },
+        setLoading: (state, payload) => {
+            state.loading = payload;
+        },
     },
     actions: {
         async fetchDepTypes({ commit }, { pageSize, projectId }) {
@@ -89,9 +155,35 @@ const department = {
 
         async fetchDepColumns({ commit }, projectId) {
             const resOwnerId = await api.getFieldsName(projectId);
+            commit("setOwnerId", resOwnerId.owner_id);
             const res = await api.getDepartmentsColumns(resOwnerId.owner_id);
             const indexSettings = res.value.active_idx;
 
+            commit("setRawTableSettings", res.value);
+            let preTableSettings = [];
+            preTableSettings.push(structuredClone(res.value.default_columns));
+            res.value.table_settings.forEach((item) => {
+                preTableSettings.push(structuredClone(item));
+            });
+
+            let tableSettings = preTableSettings.map((item, index) => {
+                delete item.column_sizes;
+                delete item.is_in_use;
+                if (index === 0) {
+                    item.name = "Default";
+                    item.show_inactive_state = false;
+                    item.show_redacted_state = false;
+                    item.fixed_number = 2;
+                }
+                if (!Object.prototype.hasOwnProperty.call(item, "name")) {
+                    item.name = `Custom ${index}`;
+                }
+                return item;
+            });
+
+            commit("setTableSettings", tableSettings);
+            commit("setActiveIndex", indexSettings + 1);
+            commit("setCurrentActiveIndex", indexSettings + 1);
             if (indexSettings === -1) {
                 commit("setDepColumns", res.value.default_columns.columns);
                 commit(
@@ -126,6 +218,11 @@ const department = {
             const res = await api.sortDepartment(querySortString, signal);
             commit("setMetaDepartment", res.meta);
             commit("setDepartments", res.results);
+        },
+
+        async fetchRawTableSettings({ commit, state }) {
+            const res = await api.getDepartmentsColumns(state.ownerId);
+            commit("setRawTableSettings", res.value);
         },
     },
 };
