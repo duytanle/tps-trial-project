@@ -63,7 +63,7 @@ export default {
             this.setDesserts();
         },
         depColumns(newValue) {
-            this.headers = newValue.map((item) => ({
+            this.headers = newValue.map((item, index) => ({
                 text: allDepColumns[item],
                 key: item,
                 align: "start",
@@ -71,6 +71,7 @@ export default {
                 value: item,
                 divider: true,
                 editable: item === "ref_id" || item === "department_type",
+                cellClass: index < 1 ? "freeze" : "",
             }));
         },
     },
@@ -179,26 +180,26 @@ export default {
         handleMouseDownResize(e) {
             this.resizeColumn.tableWidth =
                 document.getElementsByTagName("table")[0].offsetWidth;
+            console.log(this.resizeColumn.tableWidth);
+
             this.resizeColumn.curCol = e.target.parentElement;
+            console.log(this.resizeColumn.curCol);
+
             this.resizeColumn.pageX = e.pageX;
+
             this.resizeColumn.curColWidth =
                 this.resizeColumn.curCol.offsetWidth - 20;
         },
         handleMouseMoveResize(e) {
             if (this.resizeColumn.curCol) {
+                console.log(this.resizeColumn.curCol);
                 let diffX = e.pageX - this.resizeColumn.pageX;
+
                 this.resizeColumn.curCol.style.width =
                     this.resizeColumn.curColWidth + diffX + "px";
-                if (
-                    this.resizeColumn.tableWidth >
-                    this.resizeColumn.tableWidth + diffX
-                ) {
-                    document.getElementsByTagName("table")[0].style.width =
-                        this.resizeColumn.tableWidth + "px";
-                } else {
-                    document.getElementsByTagName("table")[0].style.width =
-                        this.resizeColumn.tableWidth + diffX + "px";
-                }
+
+                document.getElementsByTagName("table")[0].style.width =
+                    this.resizeColumn.tableWidth + diffX + "px";
             }
         },
         handleMouseUpResize() {
@@ -248,6 +249,7 @@ export default {
         },
     },
     async created() {
+        this.setLoading(true);
         this.setProjectId(this.id);
 
         let query = this.$route.query;
@@ -264,17 +266,9 @@ export default {
             projectId: this.id,
             state: "ACTIVE",
         });
-
-        // this.headers = this.depColumns.map((item) => ({
-        //     text: allDepColumns[item],
-        //     key: item,
-        //     align: "start",
-        //     sortable: true,
-        //     value: item,
-        //     divider: true,
-        //     editable: item === "ref_id" || item === "department_type",
-        // }));
-        // this.setDesserts();
+        this.setLoading(false);
+        this.resizeColumn.tableWidth =
+            document.getElementsByTagName("table")[0].offsetWidth;
     },
 
     mounted() {
@@ -364,7 +358,8 @@ export default {
                     }"
                     @pagination="handlePagination"
                     @update:options="handleSortDepartment"
-                    :loading="true"
+                    :loading="loading"
+                    calculate-widths
                 >
                     <template
                         v-for="header in headers"
@@ -567,5 +562,11 @@ tbody tr:hover {
 
 .resize-column:hover {
     border-right: 2px solid blue;
+}
+.v-progress-linear__indeterminate {
+    height: 50px;
+}
+
+.freeze {
 }
 </style>
