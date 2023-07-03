@@ -4,7 +4,6 @@ const addEditModule = {
         infoAddDep: {},
         listEditDep: [],
         detailDepartment: {},
-        loading: false,
     },
     getters: {
         getInfoAddDep: (state) => {
@@ -20,10 +19,6 @@ const addEditModule = {
         getDetailDepartment: (state) => {
             return state.detailDepartment;
         },
-
-        getLoading: (state) => {
-            return state.loading;
-        },
     },
     mutations: {
         setInfoAddDep: (state, payload) => {
@@ -36,10 +31,6 @@ const addEditModule = {
 
         setDetailDepartment: (state, payload) => {
             state.detailDepartment = payload;
-        },
-
-        setLoading: (state) => {
-            state.loading = !state.loading;
         },
     },
     actions: {

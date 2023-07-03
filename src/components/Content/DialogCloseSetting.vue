@@ -1,16 +1,36 @@
 <script>
 export default {
-    // props: {
-    //     settingType: { type: Object, required: true },
-    // },
+    props: {
+        item: { type: Object, required: true },
+        settingNames: { type: Array, required: true },
+        currentActiveIndex: { type: Number, required: true },
+    },
     data() {
         return {
             dialog: false,
+            settingReplace: [],
         };
+    },
+    computed: {
+        listSettingNames() {
+            return this.settingNames.filter(
+                (setting) => setting.id !== this.item.id
+            );
+        },
+    },
+    created() {
+        this.settingReplace =
+            this.item.id === this.settingNames[this.currentActiveIndex].id
+                ? this.settingNames[0]
+                : this.settingNames[this.currentActiveIndex];
     },
     methods: {
         handleCloseSettingConfirm(type) {
-            this.$emit("update:close", { id: type });
+            this.$emit("update:close", {
+                id: type,
+                itemDeleted: this.item.id,
+                itemReplaced: this.settingReplace.id,
+            });
             this.dialog = false;
         },
     },
@@ -27,15 +47,19 @@ export default {
             </v-card-title>
 
             <v-card-text class="text-h5">
-                You are about to remove {{}} for this table. Removing selected
-                table setting will delete that configuration from your table
-                setting and will no longer be available for selection.
+                You are about to remove {{ item.name }} for this table. Removing
+                selected table setting will delete that configuration from your
+                table setting and will no longer be available for selection.
             </v-card-text>
 
             <v-card-text>
                 <v-combobox
+                    v-model="settingReplace"
                     label="Select Table Setting to Apply"
-                    :items="['Default', 'Custom 1']"
+                    :items="listSettingNames"
+                    item-text="name"
+                    item-value="id"
+                    return-object
                 >
                 </v-combobox>
             </v-card-text>
