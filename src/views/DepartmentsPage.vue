@@ -12,18 +12,16 @@ export default {
             selected: [],
             headers: [],
             desserts: [],
-            offsetTop: 0,
             selectedPage: 1,
             itemsPerPage: 10,
-            toTopBtn: false,
             pagination: false,
             queryPagination: null,
             selectedDep: [],
             refIdEdit: "",
             departmentTypeEdit: null,
             directlyEdit: false,
-            tableNode: null,
             resizeColumn: {},
+            toTopBtn: null,
         };
     },
     computed: {
@@ -34,6 +32,10 @@ export default {
             metaDepartment: "getMetaDepartment",
             listEditNumber: "getListEditNumber",
             loading: "getLoading",
+            rawTableSettings: "getRawTableSettings",
+            tableSettingActive: "getTableSettingActive",
+            depColumnsSize: "getDepColumnsSize",
+            ownerId: "getOwnerId",
         }),
     },
     watch: {
@@ -66,12 +68,15 @@ export default {
             this.headers = newValue.map((item, index) => ({
                 text: allDepColumns[item],
                 key: item,
-                align: "start",
                 sortable: true,
                 value: item,
                 divider: true,
                 editable: item === "ref_id" || item === "department_type",
-                cellClass: index < 1 ? "freeze" : "",
+                width:
+                    this.depColumnsSize.length > 0
+                        ? this.depColumnsSize[index + 1]
+                        : "min-content",
+                class: "freeze",
             }));
         },
     },
@@ -129,9 +134,10 @@ export default {
         },
         handleWrapperScroll(e) {
             e.target.scrollTop > 0
-                ? (this.toTopBtn = true)
-                : (this.toTopBtn = false);
+                ? this.toTopBtn.classList.remove("hidden")
+                : this.toTopBtn.classList.add("hidden");
         },
+
         handleToTop() {
             const tableWrapper = document.querySelector(
                 ".v-data-table__wrapper"
@@ -178,34 +184,76 @@ export default {
         },
 
         handleMouseDownResize(e) {
-            this.resizeColumn.tableWidth =
-                document.getElementsByTagName("table")[0].offsetWidth;
-            console.log(this.resizeColumn.tableWidth);
+            this.resizeColumn.depWidth =
+                this.resizeColumn.depContent.offsetWidth;
+            this.resizeColumn.tableWidth = this.resizeColumn.table.offsetWidth;
 
             this.resizeColumn.curCol = e.target.parentElement;
-            console.log(this.resizeColumn.curCol);
 
             this.resizeColumn.pageX = e.pageX;
 
             this.resizeColumn.curColWidth =
-                this.resizeColumn.curCol.offsetWidth - 20;
+                this.resizeColumn.curCol.offsetWidth;
         },
+
         handleMouseMoveResize(e) {
             if (this.resizeColumn.curCol) {
-                console.log(this.resizeColumn.curCol);
                 let diffX = e.pageX - this.resizeColumn.pageX;
 
+                this.resizeColumn.curCol.style.minWidth =
+                    this.resizeColumn.curColWidth + diffX + "px";
                 this.resizeColumn.curCol.style.width =
                     this.resizeColumn.curColWidth + diffX + "px";
 
-                document.getElementsByTagName("table")[0].style.width =
-                    this.resizeColumn.tableWidth + diffX + "px";
+                if (
+                    this.resizeColumn.depWidth <
+                    this.resizeColumn.tableWidth + diffX
+                ) {
+                    this.resizeColumn.table.style.width =
+                        this.resizeColumn.tableWidth + diffX + "px";
+                } else {
+                    this.resizeColumn.table.style.width =
+                        this.resizeColumn.depWidth + "px";
+                }
             }
         },
-        handleMouseUpResize() {
+        async handleMouseUpResize() {
+            const thChildren = this.resizeColumn.table.querySelectorAll("th");
+            let widthColumns = [];
+            if (this.depColumnsSize.length > 0) {
+                const currentIndexElement = Array.prototype.indexOf.call(
+                    thChildren,
+                    this.resizeColumn.curCol
+                );
+                widthColumns = [...this.depColumnsSize];
+                widthColumns[currentIndexElement] = parseInt(
+                    this.resizeColumn.curCol?.style.width
+                );
+            } else {
+                widthColumns = Array.prototype.map.call(
+                    thChildren,
+                    (child) => child.offsetWidth
+                );
+                widthColumns[0] = 58;
+            }
+            let cloneRawTableSettings = structuredClone(this.rawTableSettings);
+            if (cloneRawTableSettings.active_idx === -1) {
+                cloneRawTableSettings.default_columns.column_sizes =
+                    widthColumns;
+            } else {
+                cloneRawTableSettings.table_settings[
+                    cloneRawTableSettings.active_idx
+                ].column_sizes = widthColumns;
+            }
+
+            await api.updateSetting(this.ownerId, {
+                value: cloneRawTableSettings,
+            });
+
             this.resizeColumn.curCol = undefined;
             this.resizeColumn.pageX = undefined;
             this.resizeColumn.curColWidth = undefined;
+            this.resizeColumn.diffX = undefined;
         },
 
         async handleSortDepartment({ sortBy, sortDesc, ...item }) {
@@ -267,8 +315,6 @@ export default {
             state: "ACTIVE",
         });
         this.setLoading(false);
-        this.resizeColumn.tableWidth =
-            document.getElementsByTagName("table")[0].offsetWidth;
     },
 
     mounted() {
@@ -276,7 +322,11 @@ export default {
         tableWrapper.addEventListener("scroll", this.handleWrapperScroll);
         document.addEventListener("mousemove", this.handleMouseMoveResize);
         document.addEventListener("mouseup", this.handleMouseUpResize);
+        this.resizeColumn.table = document.getElementsByTagName("table")[0];
+        this.resizeColumn.depContent = document.querySelector(".dep__content");
+        this.toTopBtn = document.querySelector(".to-top-table");
     },
+    updated() {},
 };
 </script>
 
@@ -359,7 +409,6 @@ export default {
                     @pagination="handlePagination"
                     @update:options="handleSortDepartment"
                     :loading="loading"
-                    calculate-widths
                 >
                     <template
                         v-for="header in headers"
@@ -457,7 +506,7 @@ export default {
                         </v-edit-dialog>
                     </template>
                     <template v-slot:[`item.state`]="{ item }">
-                        <v-chip color="green" dark small>
+                        <v-chip color="green" dark small class="text-center">
                             {{
                                 item?.state
                                     ?.toLowerCase()
@@ -472,8 +521,8 @@ export default {
                         <v-btn
                             text
                             color="primary"
-                            v-if="toTopBtn"
                             @click="handleToTop"
+                            class="to-top-table hidden"
                         >
                             <v-icon>mdi-chevron-up</v-icon> TO TOP OF TABLE
                         </v-btn>
@@ -512,6 +561,10 @@ export default {
 </template>
 
 <style>
+.to-top-table.hidden {
+    visibility: hidden;
+    opacity: 0;
+}
 .custom-table.v-data-table
     > .v-data-table__wrapper
     > table
@@ -522,6 +575,17 @@ export default {
     font-size: 1.2rem;
     font-weight: 800;
 }
+
+.custom-table.v-data-table
+    > .v-data-table__wrapper
+    > table
+    > thead
+    > tr
+    > th:not(:first-child) {
+    text-align: center !important;
+    white-space: nowrap;
+}
+
 .custom-table.v-data-table > .v-data-table__wrapper > table > tbody > tr > td {
     font-size: 1.4rem;
 }
@@ -568,5 +632,6 @@ tbody tr:hover {
 }
 
 .freeze {
+    position: sticky;
 }
 </style>

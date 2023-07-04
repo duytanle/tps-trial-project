@@ -29,7 +29,6 @@ export default {
     computed: {
         ...mapGetters({
             depTypes: "getDepTypes",
-            infoEditDep: "getInfoEditDep",
             detailDep: "getDetailDepartment",
             loading: "getLoading",
             projectId: "getProjectId",
