@@ -3,6 +3,7 @@ import { mapActions, mapGetters, mapMutations } from "vuex";
 import HeaderFilter from "../components/Header/HeaderFilter.vue";
 import api from "../api/index";
 import allDepColumns from "../utils/allDepColums";
+import axios from "axios";
 export default {
     components: { HeaderFilter },
     props: ["id"],
@@ -36,6 +37,7 @@ export default {
             tableSettingActive: "getTableSettingActive",
             depColumnsSize: "getDepColumnsSize",
             ownerId: "getOwnerId",
+            listEditDep: "getListEditDep",
         }),
     },
     watch: {
@@ -60,6 +62,9 @@ export default {
         // },
         selectedDep: function () {
             this.setListEditDep(this.selectedDep);
+        },
+        listEditDep() {
+            this.selectedDep = [];
         },
         departments() {
             this.setDesserts();
@@ -234,7 +239,7 @@ export default {
                     thChildren,
                     (child) => child.offsetWidth
                 );
-                widthColumns[0] = 58;
+                // widthColumns[0] = 58;
             }
             let cloneRawTableSettings = structuredClone(this.rawTableSettings);
             if (cloneRawTableSettings.active_idx === -1) {
@@ -245,55 +250,52 @@ export default {
                     cloneRawTableSettings.active_idx
                 ].column_sizes = widthColumns;
             }
-
-            await api.updateSetting(this.ownerId, {
-                value: cloneRawTableSettings,
-            });
-
             this.resizeColumn.curCol = undefined;
             this.resizeColumn.pageX = undefined;
             this.resizeColumn.curColWidth = undefined;
             this.resizeColumn.diffX = undefined;
+
+            await api.updateSetting(this.ownerId, {
+                value: cloneRawTableSettings,
+            });
         },
 
         async handleSortDepartment({ sortBy, sortDesc, ...item }) {
-            this.setLoading(true);
-            let querySortObject = {
-                page_size: item.itemsPerPage,
-                page: item.page,
-                sort: "name",
-                project: this.id,
-                state: "ACTIVE",
-            };
-
-            if (sortBy.length > 0) {
-                querySortObject.sort =
-                    sortBy[0] === "department_type"
-                        ? sortDesc[0] === true
-                            ? "-department_type__option_name"
-                            : "department_type__option_name"
-                        : `${sortDesc[0] === true ? "-" : ""}${sortBy[0]}`;
-            }
-
-            const querySortString =
-                "?" + new URLSearchParams(querySortObject).toString();
-            await this.fetchSortDepartment({ querySortString });
-            if (this.pagination) {
-                this.$router.push({
-                    query: {
-                        pageSize: this.itemsPerPage,
-                        page: this.selectedPage,
-                        sort:
-                            querySortObject.sort.charAt(0) === "-"
-                                ? querySortObject.sort.slice(1)
-                                : querySortObject.sort,
-                        desc: sortDesc.length > 0 ? sortDesc[0].toString() : "",
-                    },
-                });
-            } else {
-                this.pagination = true;
-            }
-            this.setLoading(false);
+            // this.setLoading(true);
+            // let querySortObject = {
+            //     page_size: item.itemsPerPage,
+            //     page: item.page,
+            //     sort: "name",
+            //     project: this.id,
+            //     state: "ACTIVE",
+            // };
+            // if (sortBy.length > 0) {
+            //     querySortObject.sort =
+            //         sortBy[0] === "department_type"
+            //             ? sortDesc[0] === true
+            //                 ? "-department_type__option_name"
+            //                 : "department_type__option_name"
+            //             : `${sortDesc[0] === true ? "-" : ""}${sortBy[0]}`;
+            // }
+            // const querySortString =
+            //     "?" + new URLSearchParams(querySortObject).toString();
+            // await this.fetchSortDepartment({ querySortString });
+            // if (this.pagination) {
+            //     this.$router.push({
+            //         query: {
+            //             pageSize: this.itemsPerPage,
+            //             page: this.selectedPage,
+            //             sort:
+            //                 querySortObject.sort.charAt(0) === "-"
+            //                     ? querySortObject.sort.slice(1)
+            //                     : querySortObject.sort,
+            //             desc: sortDesc.length > 0 ? sortDesc[0].toString() : "",
+            //         },
+            //     });
+            // } else {
+            //     this.pagination = true;
+            // }
+            // this.setLoading(false);
         },
     },
     async created() {
@@ -326,13 +328,69 @@ export default {
         this.resizeColumn.depContent = document.querySelector(".dep__content");
         this.toTopBtn = document.querySelector(".to-top-table");
     },
-    updated() {},
+
+    updated() {
+        let fixedNumber = this.tableSettingActive?.fixed_number ?? 0;
+        let thColumns = this.resizeColumn.table.querySelectorAll("th");
+        let thColumnFixed = Array.prototype.slice.call(
+            thColumns,
+            0,
+            fixedNumber + 1
+        );
+        let widthFixedColumns = [];
+        if (this.depColumnsSize.length > 0) {
+            widthFixedColumns = this.depColumnsSize.slice(0, fixedNumber + 1);
+        } else {
+            widthFixedColumns = thColumnFixed.map((item) => item.offsetWidth);
+        }
+        widthFixedColumns[0] = 69;
+        for (let i = 0; i <= fixedNumber; ++i) {
+            let totalLeftSpacing = widthFixedColumns.reduce(
+                (previous, value, index) => {
+                    if (index < i) {
+                        return previous + value;
+                    } else return previous + 0;
+                },
+                0
+            );
+            if (thColumnFixed) {
+                thColumnFixed[i].style.cssText = `
+                position: sticky !important; 
+                width: ${widthFixedColumns[i]}px; 
+                min-width: ${widthFixedColumns[i]}px; 
+                left: ${totalLeftSpacing}px; 
+                z-index: 4 !important; 
+                background-color: #fff; 
+                border-left: thin solid rgba(0, 0, 0, 0.12);`;
+            }
+            const cells = document.querySelectorAll(
+                `.custom-table tbody tr > td:nth-child(${i + 1})`
+            );
+            Array.prototype.forEach.call(cells, (cell, index) => {
+                cell.style.cssText = `
+                position: sticky !important; 
+                width: ${widthFixedColumns[i]}px; 
+                min-width: ${widthFixedColumns[i]}px; 
+                left: ${totalLeftSpacing}px; 
+                z-index: 3 !important; 
+                background-color: ${index % 2 === 0 ? "#f5f5f5" : "#ffffff"}; 
+                border-left: thin solid rgba(0, 0, 0, 0.12);
+                `;
+
+                if (i === fixedNumber) {
+                    cell.style.borderRight = "thin solid black";
+                }
+            });
+        }
+        thColumnFixed[fixedNumber].style.borderRight = "thin solid black";
+    },
 };
 </script>
 
 <template>
     <div class="departments" :style="{ height: '100%' }">
         <header-filter></header-filter>
+
         <div class="dep__content mt-16">
             <div class="table__info pa-2">
                 <div class="d-flex">
@@ -629,9 +687,5 @@ tbody tr:hover {
 }
 .v-progress-linear__indeterminate {
     height: 50px;
-}
-
-.freeze {
-    position: sticky;
 }
 </style>
