@@ -19,6 +19,10 @@ const addEditModule = {
         getDetailDepartment: (state) => {
             return state.detailDepartment;
         },
+
+        getListEditDep: (state) => {
+            return state.listEditDep;
+        },
     },
     mutations: {
         setInfoAddDep: (state, payload) => {

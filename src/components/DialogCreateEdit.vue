@@ -2,7 +2,7 @@
 import DialogCustom from "./DialogCustom.vue";
 import DialogConfirm from "./DialogConfirm.vue";
 import api from "../api/index";
-import { mapActions, mapGetters } from "vuex";
+import { mapActions, mapGetters, mapMutations } from "vuex";
 export default {
     components: { DialogCustom, DialogConfirm },
     props: {
@@ -29,7 +29,6 @@ export default {
     computed: {
         ...mapGetters({
             depTypes: "getDepTypes",
-            infoEditDep: "getInfoEditDep",
             detailDep: "getDetailDepartment",
             loading: "getLoading",
             projectId: "getProjectId",
@@ -57,6 +56,7 @@ export default {
         },
     },
     methods: {
+        ...mapMutations(["setListEditDep"]),
         ...mapActions(["fetchEditDepartment"]),
         async save(closeDialog) {
             this.rules.name = [(v) => !!v || "This field is required"];
@@ -83,6 +83,7 @@ export default {
                         depId: this.detailDep.id,
                         editInfo,
                     });
+                    this.setListEditDep([]);
                     closeDialog();
                 } else {
                     let createInfo = {
@@ -106,6 +107,7 @@ export default {
         },
         async saveAndCreateAnother() {
             await this.save(() => {});
+
             this.dep.name = "";
             this.dep.type = null;
             this.dep.id = "";

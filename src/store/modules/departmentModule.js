@@ -195,6 +195,10 @@ const department = {
                     "setDepColumns",
                     res.value.table_settings[indexSettings].columns
                 );
+                commit(
+                    "setDepColumnsSize",
+                    res.value.table_settings[indexSettings]?.column_sizes || []
+                );
             }
         },
 
